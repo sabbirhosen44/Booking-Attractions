@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+.env
+.env.*
+
+# Django
+db.sqlite3
+*.sqlite3
+media/
+staticfiles/
+
+# Migrations (optional)
+# Uncomment if migrations should not be tracked
+# */migrations/*
+# !*/migrations/__init__.py
+
+# Logs
+*.log
+logs/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Build / Distribution
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# SQLAlchemy
+*.db
+*.sqlite
+
+# Data Files
+data/
+
+# Generated Reports
+reports/
+output/
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+
+# Environment Variables
+.env.local
+.env.development
+.env.production
+
+# Coverage
+.coverage.*
+coverage.xml
+
+# Backup Files
+*.bak
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Secrets
+secrets/
+credentials.json
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Windows
+Desktop.ini
+
+
+data/
