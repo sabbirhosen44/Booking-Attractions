@@ -1,0 +1,18 @@
+[app]
+environment = "development"
+
+[security]
+secret_key = "your-secretkey"
+
+[development]
+debug = true
+
+[production]
+debug = false
+
+[database]
+engine = "django.db.backends.sqlite3"
+name = "db.sqlite3"
+
+[import]
+data_dir = "data"

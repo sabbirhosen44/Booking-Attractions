@@ -1,22 +1,18 @@
-import os
-
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+from config.configuration import (
+    DATABASE,
+    DEBUG,
+    SECRET_KEY,
+)
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+SECRET_KEY = SECRET_KEY
 
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-a6p@&8*^@!3c@s43qi5o@zhg(v@=x19$2^3nr8!qu4*@d3u142'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = DEBUG
 
 ALLOWED_HOSTS = []
-
-
-# Application definition
 
 INSTALLED_APPS = [
     "attractions",
@@ -24,37 +20,27 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = []
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = []
 
-WSGI_APPLICATION = 'config.wsgi.application'
-
-
-
+WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": DATABASE["engine"],
+        "NAME": BASE_DIR / DATABASE["name"],
     }
 }
 
-
-
-
 AUTH_PASSWORD_VALIDATORS = []
 
+LANGUAGE_CODE = "en-us"
 
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
 USE_TZ = True
 
-DATA_DIR = os.environ.get("BOOKING_DATA_DIR", str(BASE_DIR / "data"))
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

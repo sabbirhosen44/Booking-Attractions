@@ -1,10 +1,10 @@
 from django.core.management.base import BaseCommand
 
-from attractions.services import run_import
+from attractions.services import DataImportRunner
 
 
 class Command(BaseCommand):
     help = "Import Booking Attraction JSON data"
 
     def handle(self, *args, **options):
-        run_import()
+        DataImportRunner().run()

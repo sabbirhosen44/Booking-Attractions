@@ -1,119 +1,108 @@
-from sqlalchemy import (
-    JSON,
-    Column,
-    Date,
-    ForeignKey,
-    Integer,
-    Numeric,
-    String,
-    Text,
-    UniqueConstraint,
-)
-from sqlalchemy.orm import relationship
-
-from database import Base
+from django.db import models
 
 
-class Attraction(Base):
-    __tablename__ = "attractions"
-
-    id = Column(String, primary_key=True)
-    duration = Column(String)
-    rating_score = Column(Numeric(3, 2))
-    rating_review_count = Column(Integer)
-    categories = Column(JSON, nullable=False, default=list)
-    badges = Column(JSON, nullable=False, default=list)
-    booking_web_url = Column(Text)
-    booking_app_url = Column(Text)
-    city_id = Column(Integer)
-    country_code = Column(String(10))
-    latitude = Column(Numeric(10, 7))
-    longitude = Column(Numeric(10, 7))
-    address = Column(Text)
-    post_code = Column(String(20))
-    location_type = Column(String)
-
-    localized = relationship(
-        "AttractionLocalized", back_populates="attraction", cascade="all, delete-orphan"
+class Attraction(models.Model):
+    id = models.CharField(max_length=255, primary_key=True)
+    duration = models.CharField(max_length=255, null=True, blank=True)
+    rating_score = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True
     )
-    photos = relationship(
-        "AttractionPhoto", back_populates="attraction", cascade="all, delete-orphan"
+    rating_review_count = models.IntegerField(null=True, blank=True)
+    categories = models.JSONField(default=list)
+    badges = models.JSONField(default=list)
+    booking_web_url = models.TextField(null=True, blank=True)
+    booking_app_url = models.TextField(null=True, blank=True)
+    city_id = models.IntegerField(null=True, blank=True)
+    country_code = models.CharField(max_length=10, null=True, blank=True)
+    latitude = models.DecimalField(
+        max_digits=10, decimal_places=7, null=True, blank=True
     )
-    reviews = relationship(
-        "AttractionReview", back_populates="attraction", cascade="all, delete-orphan"
+    longitude = models.DecimalField(
+        max_digits=10, decimal_places=7, null=True, blank=True
     )
-    review_scores = relationship(
-        "AttractionReviewScore", back_populates="attraction", cascade="all, delete-orphan"
+    address = models.TextField(null=True, blank=True)
+    post_code = models.CharField(max_length=20, null=True, blank=True)
+    location_type = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = "attractions"
+
+
+class AttractionLocalized(models.Model):
+    attraction = models.ForeignKey(
+        Attraction,
+        related_name="localized",
+        on_delete=models.CASCADE,
     )
+    language_code = models.CharField(max_length=10)
+    name = models.TextField(null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "attraction_localized"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attraction", "language_code"],
+                name="uq_localized_attraction_language",
+            ),
+        ]
 
 
-class AttractionLocalized(Base):
-    __tablename__ = "attraction_localized"
-    __table_args__ = (
-        UniqueConstraint(
-            "attraction_id", "language_code", name="uq_localized_attraction_language"
-        ),
+class AttractionPhoto(models.Model):
+    attraction = models.ForeignKey(
+        Attraction,
+        related_name="photos",
+        on_delete=models.CASCADE,
     )
+    photo_url = models.TextField()
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    attraction_id = Column(
-        String, ForeignKey("attractions.id", ondelete="CASCADE"), nullable=False
+    class Meta:
+        db_table = "attraction_photos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attraction", "photo_url"],
+                name="uq_photos_attraction_url",
+            ),
+        ]
+
+
+class AttractionReview(models.Model):
+    id = models.CharField(max_length=255, primary_key=True)
+    attraction = models.ForeignKey(
+        Attraction,
+        related_name="reviews",
+        on_delete=models.CASCADE,
     )
-    language_code = Column(String, nullable=False)
-    name = Column(String)
-    description = Column(Text)
-
-    attraction = relationship("Attraction", back_populates="localized")
-
-
-class AttractionPhoto(Base):
-    __tablename__ = "attraction_photos"
-    __table_args__ = (
-        UniqueConstraint(
-            "attraction_id", "photo_url", name="uq_photos_attraction_url"
-        ),
+    author_name = models.CharField(max_length=255, null=True, blank=True)
+    author_country_code = models.CharField(
+        max_length=10, null=True, blank=True
     )
+    rating = models.IntegerField(null=True, blank=True)
+    review_text = models.TextField(null=True, blank=True)
+    language_code = models.CharField(max_length=10, null=True, blank=True)
+    review_date = models.DateField(null=True, blank=True)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    attraction_id = Column(
-        String, ForeignKey("attractions.id", ondelete="CASCADE"), nullable=False
+    class Meta:
+        db_table = "attraction_reviews"
+
+
+class AttractionReviewScore(models.Model):
+    attraction = models.ForeignKey(
+        Attraction,
+        related_name="review_scores",
+        on_delete=models.CASCADE,
     )
-    photo_url = Column(Text, nullable=False)
-
-    attraction = relationship("Attraction", back_populates="photos")
-
-
-class AttractionReview(Base):
-    __tablename__ = "attraction_reviews"
-
-    id = Column(String, primary_key=True)
-    attraction_id = Column(
-        String, ForeignKey("attractions.id", ondelete="CASCADE"), nullable=False
+    score_type = models.CharField(max_length=255)
+    score = models.DecimalField(
+        max_digits=3, decimal_places=2, null=True, blank=True
     )
-    author_name = Column(String)
-    author_country_code = Column(String(10))
-    rating = Column(Integer)
-    review_text = Column(Text)
-    language_code = Column(String)
-    review_date = Column(Date)
+    review_count = models.IntegerField(null=True, blank=True)
 
-    attraction = relationship("Attraction", back_populates="reviews")
-
-
-class AttractionReviewScore(Base):
-    __tablename__ = "attraction_review_scores"
-    __table_args__ = (
-        UniqueConstraint(
-            "attraction_id", "score_type", name="uq_scores_attraction_type"
-        ),
-    )
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    attraction_id = Column(
-        String, ForeignKey("attractions.id", ondelete="CASCADE"), nullable=False
-    )
-    score_type = Column(String, nullable=False)
-    score = Column(Numeric(3, 2))
-    review_count = Column(Integer)
-
-    attraction = relationship("Attraction", back_populates="review_scores")
+    class Meta:
+        db_table = "attraction_review_scores"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attraction", "score_type"],
+                name="uq_scores_attraction_type",
+            ),
+        ]

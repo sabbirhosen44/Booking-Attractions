@@ -1,36 +1,46 @@
 # Booking Attractions
 
-A Python-based data importer that processes Booking.com Attractions API datasets and stores them in a SQLite database using SQLAlchemy. The importer supports attractions, localized content, photos, reviews, and review score breakdowns with efficient batch processing and upsert operations.
+A Django-based data importer that processes Booking.com Attractions datasets and stores them in a SQLite database. The importer supports attractions, localized content, photos, reviews, and review score breakdowns with efficient batch processing, streaming JSON parsing, and bulk database operations.
 
 ## Features
 
-- Import attraction details
-- Import localized names and descriptions
-- Import attraction photos
-- Import attraction reviews
-- Import review score breakdowns
-- Batch processing for large JSON files
-- Streaming JSON parsing using `ijson`
-- Upsert support to avoid duplicate records
+* Import attraction details
+* Import localized names and descriptions
+* Import attraction photos
+* Import attraction reviews
+* Import review score breakdowns
+* Batch processing for large datasets
+* Streaming JSON parsing using `ijson`
+* Bulk create and upsert operations
+* Thread-safe database writes
+* Dedicated database service layer
+* Centralized configuration using TOML
 
 ## Tech Stack
 
-- Python 3.12+
-- Django (settings & management command)
-- SQLAlchemy
-- SQLite
-- ijson
+* Python 3.12+
+* Django ORM
+* SQLite
+* ijson
 
 ## Project Structure
 
-```
+```text
 booking_attraction/
 ├── attractions/
+│   ├── management/
+│   ├── models.py
+│   ├── services.py
+│   ├── db_services.py
+│   └── utils/
+├── config/
+│   ├── settings.py
+│   ├── configuration.py
+│   └── app_config.toml
 ├── data/
 │   ├── attraction_details/
 │   ├── reviews/
 │   └── reviews_scores/
-├── database.py
 ├── manage.py
 ├── requirements.txt
 └── db.sqlite3
@@ -63,29 +73,46 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-## Run
+Run migrations:
 
-Place the Booking.com JSON data inside the `data/` directory:
-
+```bash
+python3 manage.py migrate
 ```
+
+## Data Directory
+
+Place the Booking.com JSON files inside:
+
+```text
 data/
 ├── attraction_details/
 ├── reviews/
 └── reviews_scores/
 ```
 
-Then run:
+## Run Import
 
 ```bash
 python3 manage.py import_attractions
 ```
 
-The importer will automatically:
+The importer will automatically process:
 
-- Create database tables (if needed)
-- Import attraction details
-- Import reviews
-- Import review score breakdowns
+* Attraction details
+* Localized content
+* Photos
+* Reviews
+* Review score breakdowns
+
+## Configuration
+
+Application configuration is stored in:
+
+```text
+config/app_config.toml
+```
+
+This includes environment, database, and import-related settings.
 
 ## Author
 

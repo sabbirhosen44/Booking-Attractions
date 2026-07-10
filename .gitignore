@@ -98,4 +98,8 @@ credentials.json
 Desktop.ini
 
 
+# Data folder
 data/
+
+# Configuration file
+config/app_config.toml
