@@ -90,6 +90,14 @@ data/
 └── reviews_scores/
 ```
 
+## Configuration
+
+Application configuration :
+
+```text
+Change config/app_config.toml.example to  config/app_config.toml
+```
+
 ## Run Import
 
 ```bash
@@ -104,13 +112,7 @@ The importer will automatically process:
 * Reviews
 * Review score breakdowns
 
-## Configuration
 
-Application configuration is stored in:
-
-```text
-config/app_config.toml
-```
 
 This includes environment, database, and import-related settings.
 
