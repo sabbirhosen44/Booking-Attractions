@@ -26,24 +26,52 @@ A Django-based data importer that processes Booking.com Attractions datasets and
 ## Project Structure
 
 ```text
+```text
 booking_attraction/
-├── attractions/
-│   ├── management/
-│   ├── models.py
-│   ├── services.py
-│   ├── db_services.py
-│   └── utils/
-├── config/
-│   ├── settings.py
+├── apps/
+│   ├── attractions/
+│   │   ├── management/
+│   │   │   └── commands/
+│   │   │       └── import_attractions.py
+│   │   ├── migrations/
+│   │   ├── models.py
+│   │   ├── services.py
+│   │   ├── db_services.py
+│   │   ├── apps.py
+│   │   └── __init__.py
+│   │
+│   └── database/
+│       ├── __init__.py
+│       └── ...
+│
+├── core/
+│   ├── utils/
+│   │   ├── attraction_row_builder.py
+│   │   ├── batch_buffer.py
+│   │   ├── import_config.py
+│   │   ├── locked_write.py
+│   │   └── skip_counter.py
+│   │
+│   ├── app_config.toml.example
 │   ├── configuration.py
-│   └── app_config.toml
+│   ├── settings.py
+│   ├── urls.py
+│   ├── asgi.py
+│   ├── wsgi.py
+│   └── __init__.py
+│
 ├── data/
 │   ├── attraction_details/
 │   ├── reviews/
 │   └── reviews_scores/
+│
+├── db.sqlite3
 ├── manage.py
 ├── requirements.txt
-└── db.sqlite3
+├── README.md
+└── .gitignore
+```
+
 ```
 
 ## Setup
