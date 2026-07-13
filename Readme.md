@@ -30,19 +30,16 @@ A Django-based data importer that processes Booking.com Attractions datasets and
 booking_attraction/
 ├── apps/
 │   ├── attractions/
-│   │   ├── management/
-│   │   │   └── commands/
-│   │   │       └── import_attractions.py
-│   │   ├── migrations/
-│   │   ├── models.py
-│   │   ├── services.py
-│   │   ├── db_services.py
-│   │   ├── apps.py
-│   │   └── __init__.py
-│   │
-│   └── database/
-│       ├── __init__.py
-│       └── ...
+│      ├── management/
+│      │   └── commands/
+│      │       └── import_attractions.py
+│      ├── migrations/
+│      ├── models.py
+│      ├── services.py
+│      ├── db_services.py
+│      ├── apps.py
+│      └── __init__.py
+│
 │
 ├── core/
 │   ├── utils/
