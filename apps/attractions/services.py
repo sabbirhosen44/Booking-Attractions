@@ -1,21 +1,14 @@
 import time
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 
 import ijson
 
 from django.db import close_old_connections
 
-from apps.attractions.models import (
-    AttractionLocalized,
-    AttractionPhoto,
-    AttractionReview,
-    AttractionReviewScore,
-)
-
 from apps.attractions.db_services import (
     AttractionDBService,
+    PriceHistoryDBService,
     ReviewDBService,
     ReviewScoreDBService,
 )
@@ -24,6 +17,8 @@ from core.utils.batch_buffer import BatchBuffer
 from core.utils.locked_write import LockedWrite
 from core.utils.import_config import ImportConfig
 from core.utils.attraction_row_builder import AttractionRowBuilder
+from core.utils.price_row_builder import PriceRowBuilder
+from core.utils.review_row_builder import ReviewRowBuilder
 from core.utils.skip_counter import SkipCounter
 
 
@@ -59,7 +54,8 @@ class BaseImporter(ABC):
     def close_connection():
         close_old_connections()
 
-# Imports attraction details, localized content and photos
+
+# Imports attraction details into RentalProperty, plus localized content (RentalPropertyLocalize) and photos (PropertyImageMeta).
 class AttractionDetailsImporter(BaseImporter):
 
     folder_name = "attraction_details"
@@ -68,10 +64,10 @@ class AttractionDetailsImporter(BaseImporter):
         super().__init__(config)
         self.row_builder = AttractionRowBuilder()
 
-    def _flush(self, attractions, localized, photos):
+    def _flush(self, properties, localized, photos):
         with LockedWrite():
-            if attractions:
-                AttractionDBService.save_attractions(attractions.items())
+            if properties:
+                AttractionDBService.save_properties(properties.items())
 
             if localized:
                 AttractionDBService.save_localized(localized.items())
@@ -79,12 +75,12 @@ class AttractionDetailsImporter(BaseImporter):
             if photos:
                 AttractionDBService.save_photos(photos.items())
 
-        attractions.clear()
+        properties.clear()
         localized.clear()
         photos.clear()
 
     def process_file(self, file_path):
-        attractions = BatchBuffer(self.config.BATCH_SIZE)
+        properties = BatchBuffer(self.config.BATCH_SIZE)
         localized = BatchBuffer(self.config.BATCH_SIZE)
         photos = BatchBuffer(self.config.BATCH_SIZE)
 
@@ -94,38 +90,28 @@ class AttractionDetailsImporter(BaseImporter):
             with open(file_path, "rb") as f:
                 for item in ijson.items(f, "item"):
 
-                    attractions.add(self.row_builder.build(item))
+                    property_row, localized_rows, photo_rows = (
+                        self.row_builder.build(item)
+                    )
 
-                    for lang, name in item.get("name", {}).items():
-                        localized.add(
-                            AttractionLocalized(
-                                attraction_id=item["id"],
-                                language_code=lang,
-                                name=name,
-                                description=item.get(
-                                    "long_description", {}
-                                ).get(lang),
-                            )
-                        )
+                    properties.add(property_row)
 
-                    for photo in item.get("photos", []):
-                        photos.add(
-                            AttractionPhoto(
-                                attraction_id=item["id"],
-                                photo_url=photo["url"],
-                            )
-                        )
+                    for row in localized_rows:
+                        localized.add(row)
 
-                    if attractions.is_full():
+                    for row in photo_rows:
+                        photos.add(row)
+
+                    if properties.is_full():
                         self._flush(
-                            attractions,
+                            properties,
                             localized,
                             photos,
                         )
 
-            if attractions or localized or photos:
+            if properties or localized or photos:
                 self._flush(
-                    attractions,
+                    properties,
                     localized,
                     photos,
                 )
@@ -134,45 +120,19 @@ class AttractionDetailsImporter(BaseImporter):
             self.close_connection()
 
 
-# Imports attraction reviews and skips reviews 
+# Imports attraction reviews into PropertyReviews, skipping reviews whose attraction hasn't been imported yet.
 class ReviewsImporter(BaseImporter):
 
     folder_name = "reviews"
 
     def __init__(self, config=ImportConfig):
         super().__init__(config)
-        self.existing_attractions = set()
+        self.attraction_country_map = {}
         self.skip_counter = SkipCounter()
+        self.row_builder = ReviewRowBuilder()
 
-    def _load_existing_attraction_ids(self):
-        return AttractionDBService.get_existing_attraction_ids()
-
-    def _build_review_row(
-        self,
-        item,
-        attraction_id,
-    ):
-        review_date = None
-
-        if item.get("date"):
-            review_date = (
-                datetime.fromisoformat(
-                    item["date"]
-                ).date()
-            )
-
-        return AttractionReview(
-            id=item["id"],
-            attraction_id=attraction_id,
-            author_name=item.get("author"),
-            author_country_code=item.get(
-                "author_country_code"
-            ),
-            rating=item.get("rating"),
-            review_text=item.get("text"),
-            language_code=item.get("language"),
-            review_date=review_date,
-        )
+    def _load_attraction_country_map(self):
+        return AttractionDBService.get_existing_attraction_country_map()
 
     def _flush(self, batch):
         with LockedWrite():
@@ -198,10 +158,7 @@ class ReviewsImporter(BaseImporter):
                         "attraction"
                     )
 
-                    if (
-                        attraction_id
-                        not in self.existing_attractions
-                    ):
+                    if attraction_id not in self.attraction_country_map:
                         self.skip_counter.increment()
 
                         print(
@@ -213,10 +170,13 @@ class ReviewsImporter(BaseImporter):
 
                         continue
 
+                    country_code = self.attraction_country_map[attraction_id]
+
                     batch.add(
-                        self._build_review_row(
+                        self.row_builder.build(
                             item,
                             attraction_id,
+                            country_code,
                         )
                     )
 
@@ -241,15 +201,15 @@ class ReviewsImporter(BaseImporter):
             self.close_connection()
 
     def run(self):
-        print("Loading attraction ids...")
+        print("Loading attraction country map...")
 
-        self.existing_attractions = (
-            self._load_existing_attraction_ids()
+        self.attraction_country_map = (
+            self._load_attraction_country_map()
         )
 
         print(
             f"Loaded "
-            f"{len(self.existing_attractions)} "
+            f"{len(self.attraction_country_map)} "
             f"attractions"
         )
 
@@ -261,21 +221,19 @@ class ReviewsImporter(BaseImporter):
         )
 
 
-# Imports review score breakdowns for attractions.
+# Imports review score breakdowns and folds them into RentalProperty.review_scores for attractions that already exist.
 class ReviewScoresImporter(BaseImporter):
 
     folder_name = "reviews_scores"
 
-    def _flush(self, batch):
+    def _flush(self, buffer):
         with LockedWrite():
-            ReviewScoreDBService.save_scores(batch.items())
+            ReviewScoreDBService.save_scores(dict(buffer))
 
-        batch.clear()
+        buffer.clear()
 
     def process_file(self, file_path):
-        batch = BatchBuffer(
-            self.config.BATCH_SIZE
-        )
+        buffer = {}
 
         try:
             print(f"Processing {file_path}")
@@ -287,36 +245,98 @@ class ReviewScoresImporter(BaseImporter):
                 ):
 
                     attraction_id = item["id"]
+                    buffer[attraction_id] = item.get("breakdown", {})
 
-                    for (
-                        score_type,
-                        score_data,
-                    ) in item.get(
-                        "breakdown",
-                        {},
-                    ).items():
+                    if len(buffer) >= self.config.BATCH_SIZE:
+                        self._flush(buffer)
 
-                        batch.add(
-                            AttractionReviewScore(
-                                attraction_id=attraction_id,
-                                score_type=score_type,
-                                score=score_data.get(
-                                    "score"
-                                ),
-                                review_count=score_data.get(
-                                    "number_of_reviews"
-                                ),
-                            )
-                        )
-
-                    if batch.is_full():
-                        self._flush(batch)
-
-            if batch:
-                self._flush(batch)
+            if buffer:
+                self._flush(buffer)
 
         finally:
             self.close_connection()
+
+
+# Imports search/price snapshots into PriceHistory, and refreshes RentalProperty.currency / usd_price with the latest observed price.
+class SearchImporter(BaseImporter):
+
+    folder_name = "search"
+
+    def __init__(self, config=ImportConfig):
+        super().__init__(config)
+        self.attraction_country_map = {}
+        self.skip_counter = SkipCounter()
+        self.row_builder = PriceRowBuilder()
+
+    def _flush(self, prices, property_updates):
+        with LockedWrite():
+            if prices:
+                PriceHistoryDBService.save_prices(prices.items())
+
+            if property_updates:
+                AttractionDBService.update_pricing(dict(property_updates))
+
+        prices.clear()
+        property_updates.clear()
+
+    def process_file(self, file_path):
+        prices = BatchBuffer(self.config.BATCH_SIZE)
+        property_updates = {}
+
+        try:
+            print(f"Processing {file_path}")
+
+            with open(file_path, "rb") as f:
+                for item in ijson.items(f, "item"):
+
+                    attraction_id = item["id"]
+
+                    if attraction_id not in self.attraction_country_map:
+                        self.skip_counter.increment()
+
+                        print(
+                            f"Skipping price snapshot "
+                            f"-> missing attraction {attraction_id}"
+                        )
+
+                        continue
+
+                    country_code = self.attraction_country_map[attraction_id]
+
+                    _, currency, total, price_row = self.row_builder.build(
+                        item, country_code
+                    )
+
+                    prices.add(price_row)
+
+                    if currency and total is not None:
+                        property_updates[attraction_id] = (currency, total)
+
+                    if prices.is_full():
+                        self._flush(prices, property_updates)
+
+            if prices or property_updates:
+                self._flush(prices, property_updates)
+
+        finally:
+            self.close_connection()
+
+    def run(self):
+        print("Loading attraction country map...")
+
+        self.attraction_country_map = (
+            AttractionDBService.get_existing_attraction_country_map()
+        )
+
+        print(
+            f"Loaded {len(self.attraction_country_map)} attractions"
+        )
+
+        super().run()
+
+        print(
+            f"\nSkipped price snapshots: {self.skip_counter.total}"
+        )
 
 
 # Coordinates execution of all importers and reports the total import duration.
@@ -326,6 +346,7 @@ class DataImportRunner:
         AttractionDetailsImporter,
         ReviewsImporter,
         ReviewScoresImporter,
+        SearchImporter,
     ]
 
     def __init__(

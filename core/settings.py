@@ -15,7 +15,9 @@ DEBUG = DEBUG
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    "psqlextra",
     "django.contrib.gis",
+    "django.contrib.postgres",
     "apps.attractions",
 ]
 
@@ -37,6 +39,8 @@ DATABASES = {
         "PORT": DATABASE["port"],
     }
 }
+
+POSTGRES_EXTRA_DB_BACKEND_BASE = "django.contrib.gis.db.backends.postgis"
 
 AUTH_PASSWORD_VALIDATORS = []
 
