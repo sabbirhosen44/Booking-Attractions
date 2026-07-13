@@ -1,4 +1,4 @@
-from attractions.models import Attraction
+from apps.attractions.models import Attraction
 
 # Converts raw attraction JSON data into Attraction model instances.
 class AttractionRowBuilder:

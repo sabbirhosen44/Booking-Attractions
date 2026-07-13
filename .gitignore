@@ -1,105 +1,108 @@
 # Python
-__pycache__/
+
+**pycache**/
 *.py[cod]
 *$py.class
 
 # Virtual Environment
+
 venv/
+.venv/
+env/
+
+# Environment Variables
+
 .env
 .env.*
+.env.local
+.env.development
+.env.production
 
 # Django
+
 db.sqlite3
 *.sqlite3
 media/
 staticfiles/
 
-# Migrations (optional)
-# Uncomment if migrations should not be tracked
-# */migrations/*
-# !*/migrations/__init__.py
+# Local Configuration
+
+core/app_config.toml
+!core/app_config.toml.example
 
 # Logs
+
 *.log
 logs/
 
 # IDEs
+
 .vscode/
 .idea/
 
 # OS Files
+
 .DS_Store
 Thumbs.db
+Desktop.ini
+.AppleDouble
+.LSOverride
+*~
 
-# Pytest
+# Testing
+
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 
-# MyPy
-.mypy_cache/
+# Type Checking / Linting
 
-# Ruff
+.mypy_cache/
 .ruff_cache/
 
 # Build / Distribution
+
 build/
 dist/
 *.egg-info/
 
 # Jupyter
+
 .ipynb_checkpoints/
 
-# SQLAlchemy
-*.db
-*.sqlite
-
-# Data Files
-data/
-
-# Generated Reports
-reports/
-output/
-
 # Temporary Files
+
 tmp/
 temp/
 *.tmp
-
-# Environment Variables
-.env.local
-.env.development
-.env.production
-
-# Coverage
-.coverage.*
-coverage.xml
-
-# Backup Files
 *.bak
 *.swp
 *.swo
 
+# Data Import Files
+
+data/
+
+# Generated Reports / Outputs
+
+reports/
+output/
+
 # Docker
+
 docker-compose.override.yml
 
 # Secrets
+
 secrets/
 credentials.json
 
-# macOS
-.AppleDouble
-.LSOverride
+# Optional: Ignore migrations
 
-# Linux
-*~
+# Uncomment only if your team does not track migrations
 
-# Windows
-Desktop.ini
+# */migrations/*
 
-
-# Data folder
-data/
-
-# Configuration file
-config/app_config.toml
+# !*/migrations/**init**.py

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from config.configuration import (
+from core.configuration import (
     BASE_DIR,
     IMPORT,
 )

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from config.configuration import (
+from core.configuration import (
     DATABASE,
     DEBUG,
     SECRET_KEY,
@@ -15,16 +15,16 @@ DEBUG = DEBUG
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
-    "attractions",
+    "apps.attractions",
 ]
 
 MIDDLEWARE = []
 
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = "core.urls"
 
 TEMPLATES = []
 
-WSGI_APPLICATION = "config.wsgi.application"
+WSGI_APPLICATION = "core.wsgi.application"
 
 DATABASES = {
     "default": {

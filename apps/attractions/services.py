@@ -7,24 +7,24 @@ import ijson
 
 from django.db import close_old_connections
 
-from attractions.models import (
+from apps.attractions.models import (
     AttractionLocalized,
     AttractionPhoto,
     AttractionReview,
     AttractionReviewScore,
 )
 
-from attractions.db_services import (
+from apps.attractions.db_services import (
     AttractionDBService,
     ReviewDBService,
     ReviewScoreDBService,
 )
 
-from attractions.utils.attraction_row_builder import AttractionRowBuilder
-from attractions.utils.batch_buffer import BatchBuffer
-from attractions.utils.import_config import ImportConfig
-from attractions.utils.locked_write import LockedWrite
-from attractions.utils.skip_counter import SkipCounter
+from core.utils.batch_buffer import BatchBuffer
+from core.utils.locked_write import LockedWrite
+from core.utils.import_config import ImportConfig
+from core.utils.attraction_row_builder import AttractionRowBuilder
+from core.utils.skip_counter import SkipCounter
 
 
 # Provides common functionality for all importers: file discovery, parallel execution and connection cleanup.

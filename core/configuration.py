@@ -1,13 +1,11 @@
 from pathlib import Path
 import tomllib
 
+# Project root
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-CONFIG_FILE = (
-    BASE_DIR
-    / "config"
-    / "app_config.toml"
-)
+# core/app_config.toml
+CONFIG_FILE = Path(__file__).resolve().parent / "app_config.toml"
 
 with open(CONFIG_FILE, "rb") as f:
     CONFIG = tomllib.load(f)

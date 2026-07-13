@@ -1,4 +1,4 @@
-from attractions.models import (
+from apps.attractions.models import (
     Attraction,
     AttractionLocalized,
     AttractionPhoto,

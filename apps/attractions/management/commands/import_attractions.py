@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from attractions.services import DataImportRunner
+from apps.attractions.services import DataImportRunner
 
 
 class Command(BaseCommand):
