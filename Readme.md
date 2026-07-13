@@ -1,6 +1,6 @@
 # Booking Attractions
 
-A Django-based data importer that processes Booking.com Attractions datasets and stores them in a SQLite database. The importer supports attractions, localized content, photos, reviews, and review score breakdowns with efficient batch processing, streaming JSON parsing, and bulk database operations.
+A Django-based data importer that processes Booking.com Attractions datasets and stores them in PostgreSQL with PostGIS support. The importer supports attractions, localized content, photos, reviews, and review score breakdowns using streaming JSON parsing, batch processing, parallel execution, and bulk upsert operations.
 
 ## Features
 
@@ -15,31 +15,38 @@ A Django-based data importer that processes Booking.com Attractions datasets and
 * Thread-safe database writes
 * Dedicated database service layer
 * Centralized configuration using TOML
+* PostgreSQL database support
+* PostGIS support for future GeoDjango spatial features
+* Dockerized development environment
+* Conflict-safe bulk upserts for PostgreSQL
+
 
 ## Tech Stack
 
 * Python 3.12+
 * Django ORM
-* SQLite
+* PostgreSQL 16
+* PostGIS 3.4
+* Docker & Docker Compose
 * ijson
+* Psycopg
+
 
 ## Project Structure
 
 ```text
-```text
 booking_attraction/
 ├── apps/
-│   ├── attractions/
-│      ├── management/
-│      │   └── commands/
-│      │       └── import_attractions.py
-│      ├── migrations/
-│      ├── models.py
-│      ├── services.py
-│      ├── db_services.py
-│      ├── apps.py
-│      └── __init__.py
-│
+│   └── attractions/
+│       ├── management/
+│       │   └── commands/
+│       │       └── import_attractions.py
+│       ├── migrations/
+│       ├── models.py
+│       ├── services.py
+│       ├── db_services.py
+│       ├── apps.py
+│       └── __init__.py
 │
 ├── core/
 │   ├── utils/
@@ -62,16 +69,20 @@ booking_attraction/
 │   ├── reviews/
 │   └── reviews_scores/
 │
-├── db.sqlite3
+├── docker/
+│   └── django/
+│       └── Dockerfile
+│
+├── docker-compose.yml
 ├── manage.py
 ├── requirements.txt
 ├── README.md
 └── .gitignore
 ```
 
-```
 
 ## Setup
+```
 
 Clone the repository:
 
@@ -80,28 +91,28 @@ git clone https://github.com/sabbirhosen44/Booking-Attractions.git
 cd Booking-Attractions
 ```
 
-Create and activate a virtual environment:
+Copy the configuration file:
 
 ```bash
-python3 -m venv venv
-
-# Linux/macOS
-source venv/bin/activate
-
-# Windows
-venv\Scripts\activate
+cp core/app_config.toml.example core/app_config.toml
 ```
 
-Install dependencies:
+Build Docker containers:
 
 ```bash
-pip install -r requirements.txt
+docker compose build
+```
+
+Start services:
+
+```bash
+docker compose up -d
 ```
 
 Run migrations:
 
 ```bash
-python3 manage.py migrate
+docker compose exec web python manage.py migrate
 ```
 
 ## Data Directory
@@ -115,18 +126,21 @@ data/
 └── reviews_scores/
 ```
 
+
+
+`
 ## Configuration
 
-Application configuration :
+Create a local configuration file:
 
-```text
-Change config/app_config.toml.example to  config/app_config.toml
+```bash
+cp core/app_config.toml.example core/app_config.toml
 ```
 
 ## Run Import
 
 ```bash
-python3 manage.py import_attractions
+docker compose exec web python manage.py import_attractions
 ```
 
 The importer will automatically process:

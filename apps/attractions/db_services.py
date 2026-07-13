@@ -6,7 +6,9 @@ from apps.attractions.models import (
     AttractionReviewScore,
 )
 
-# Handles all database operations related to attractions,localized content and attraction photos.
+
+# Handles all database operations related to attractions,
+# localized content and attraction photos.
 class AttractionDBService:
 
     @staticmethod
@@ -14,8 +16,13 @@ class AttractionDBService:
         if not rows:
             return
 
+        unique_rows = {}
+
+        for row in rows:
+            unique_rows[row.id] = row
+
         Attraction.objects.bulk_create(
-            rows,
+            list(unique_rows.values()),
             update_conflicts=True,
             unique_fields=["id"],
             update_fields=[
@@ -41,8 +48,17 @@ class AttractionDBService:
         if not rows:
             return
 
+        unique_rows = {}
+
+        for row in rows:
+            key = (
+                row.attraction_id,
+                row.language_code,
+            )
+            unique_rows[key] = row
+
         AttractionLocalized.objects.bulk_create(
-            rows,
+            list(unique_rows.values()),
             update_conflicts=True,
             unique_fields=[
                 "attraction",
@@ -59,8 +75,17 @@ class AttractionDBService:
         if not rows:
             return
 
+        unique_rows = {}
+
+        for row in rows:
+            key = (
+                row.attraction_id,
+                row.photo_url,
+            )
+            unique_rows[key] = row
+
         AttractionPhoto.objects.bulk_create(
-            rows,
+            list(unique_rows.values()),
             ignore_conflicts=True,
         )
 
@@ -73,6 +98,7 @@ class AttractionDBService:
             )
         )
 
+
 # Handles all database operations related to attraction reviews.
 class ReviewDBService:
 
@@ -81,8 +107,13 @@ class ReviewDBService:
         if not rows:
             return
 
+        unique_rows = {}
+
+        for row in rows:
+            unique_rows[row.id] = row
+
         AttractionReview.objects.bulk_create(
-            rows,
+            list(unique_rows.values()),
             update_conflicts=True,
             unique_fields=["id"],
             update_fields=[
@@ -95,6 +126,7 @@ class ReviewDBService:
             ],
         )
 
+
 # Handles all database operations related to review score breakdowns.
 class ReviewScoreDBService:
 
@@ -103,8 +135,17 @@ class ReviewScoreDBService:
         if not rows:
             return
 
+        unique_rows = {}
+
+        for row in rows:
+            key = (
+                row.attraction_id,
+                row.score_type,
+            )
+            unique_rows[key] = row
+
         AttractionReviewScore.objects.bulk_create(
-            rows,
+            list(unique_rows.values()),
             update_conflicts=True,
             unique_fields=[
                 "attraction",

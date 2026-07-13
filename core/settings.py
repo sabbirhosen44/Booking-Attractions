@@ -15,6 +15,7 @@ DEBUG = DEBUG
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    "django.contrib.gis",
     "apps.attractions",
 ]
 
@@ -29,7 +30,11 @@ WSGI_APPLICATION = "core.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": DATABASE["engine"],
-        "NAME": BASE_DIR / DATABASE["name"],
+        "NAME": DATABASE["name"],
+        "USER": DATABASE["user"],
+        "PASSWORD": DATABASE["password"],
+        "HOST": DATABASE["host"],
+        "PORT": DATABASE["port"],
     }
 }
 

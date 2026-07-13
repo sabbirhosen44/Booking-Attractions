@@ -11,8 +11,12 @@ debug = true
 debug = false
 
 [database]
-engine = "django.db.backends.sqlite3"
-name = "db.sqlite3"
+engine = "django.contrib.gis.db.backends.postgis"
+name = "booking_attraction"
+user = "postgres"
+password = "postgres"
+host = "db"
+port = 5432
 
 [import]
 data_dir = "data"
