@@ -390,7 +390,7 @@ class PriceHistory(PostgresPartitionedModel):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     feed = models.CharField(max_length=5, choices=Feed.choices)
     country_code = models.CharField(max_length=2, blank=True, null=True)
-
+    
     class Meta:
         db_table = "price_history"
         indexes = (

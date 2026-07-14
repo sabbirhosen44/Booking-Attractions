@@ -5,57 +5,82 @@ from apps.attractions.models import Feed
 from core.utils.location_resolver import LocationResolver
 
 
-# Builds RentalProperty / RentalPropertyLocalize / PropertyImageMeta rows (as plain dicts, ready for psqlextra bulk_insert) from a raw Booking Attractions detail record.
 class AttractionRowBuilder:
 
     MAX_IMAGES = 15
+    MAX_SLUG_LENGTH = 150
 
     def __init__(self, location_resolver=None):
         self.location_resolver = location_resolver or LocationResolver()
 
     @staticmethod
     def _pick_primary_location(locations):
-
         if not locations:
             return {}
-
         for location in locations:
             if location.get("type") == "departure":
                 return location
-
         return locations[0]
 
     @staticmethod
     def _first_locale_value(mapping):
         if not mapping:
             return None
-
         if "en-us" in mapping:
             return mapping["en-us"]
-
         return next(iter(mapping.values()), None)
 
     @staticmethod
     def _build_point(coordinates):
         if not coordinates:
             return None
-
         latitude = coordinates.get("latitude")
         longitude = coordinates.get("longitude")
-
         if latitude is None or longitude is None:
             return None
-
         try:
             return Point(float(longitude), float(latitude), srid=4326)
         except (TypeError, ValueError):
             return None
 
+    @classmethod
+    def _build_slug(cls, name):
+        slug = slugify(name)
+        if not slug:
+            return None
+        if len(slug) > cls.MAX_SLUG_LENGTH:
+            slug = slug[: cls.MAX_SLUG_LENGTH].rstrip("-")
+        return slug or None
+
     def _resolve_city(self, country_code, city_code):
         if city_code is None:
             return None
-
         return self.location_resolver.resolve(country_code, city_code)
+
+    def _build_location_row(self, country_code, city_code, city_name, point):
+        if city_code is None or point is None:
+            return None
+
+        location_id = f"{country_code}_{city_code}"[:20]
+        name = city_name or str(city_code)
+        slug = self._build_slug(name) or str(city_code)
+
+        return {
+            "id": location_id,
+            "ancestors": [{"id": country_code, "type": "country"}],
+            "breadcrumbs": [country_code, name],
+            "center": point,
+            "geography_center": point,
+            "country_code": country_code,
+            "display_list": [name],
+            "slug": slug,
+            "location_type": "city",
+            "location_types": ["city"],
+            "name": name[:250],
+            "parent_id": country_code or "",
+            "parent_path": [country_code] if country_code else [],
+            "short_name": name[:150],
+        }
 
     def build(self, item):
         attraction_id = item["id"]
@@ -64,9 +89,10 @@ class AttractionRowBuilder:
         locations = item.get("locations", []) or []
         primary_location = self._pick_primary_location(locations)
 
-        country_code = primary_location.get("country")
+        country_code = (primary_location.get("country") or "xx").lower()
         city_code = primary_location.get("city")
         point = self._build_point(primary_location.get("coordinates"))
+        city_name = self._resolve_city(country_code, city_code)
 
         ratings = item.get("ratings", {}) or {}
         urls = item.get("urls", {}) or {}
@@ -81,12 +107,14 @@ class AttractionRowBuilder:
             if photo.get("url")
         ]
 
+        property_slug = self._build_slug(property_name)
+
         property_row = {
             "id": attraction_id,
             "booking_id": attraction_id,
             "feed": int(Feed.BOOKING_ATTRACTION),
             "property_name": property_name,
-            "property_slug": slugify(property_name) or None,
+            "property_slug": property_slug,
             "property_type": "attraction",
             "activity_categories": item.get("categories", []) or [],
             "property_attributes": item.get("badges", []) or [],
@@ -105,14 +133,13 @@ class AttractionRowBuilder:
             "display": primary_location.get("address"),
             "zip_code": primary_location.get("post_code"),
             "country_code": country_code,
-            "city": self._resolve_city(country_code, city_code),
+            "city": city_name,
             "location_id": str(city_code) if city_code is not None else None,
             "latlon": point,
             "geography_latlon": point,
         }
 
         localized_rows = []
-
         for lang, name in names.items():
             localized_rows.append(
                 {
@@ -121,7 +148,7 @@ class AttractionRowBuilder:
                     "language": lang,
                     "property_name": name,
                     "property_description": descriptions.get(lang),
-                    "property_slug": property_row["property_slug"],
+                    "property_slug": property_slug,
                     "property_type": "attraction",
                     "address": primary_location.get("address"),
                     "country_code": country_code,
@@ -129,7 +156,6 @@ class AttractionRowBuilder:
             )
 
         photo_rows = []
-
         for url in photo_urls:
             photo_rows.append(
                 {
@@ -140,4 +166,6 @@ class AttractionRowBuilder:
                 }
             )
 
-        return property_row, localized_rows, photo_rows
+        location_row = self._build_location_row(country_code, city_code, city_name, point)
+
+        return property_row, localized_rows, photo_rows, location_row

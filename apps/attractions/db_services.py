@@ -1,18 +1,62 @@
-from psqlextra.types import ConflictAction
-
 from apps.attractions.models import (
     Feed,
+    Location,
     PriceHistory,
     PropertyImageMeta,
     PropertyReviews,
     RentalProperty,
     RentalPropertyLocalize,
+    SkipProperties,
 )
 
 from core.utils.partition_manager import PartitionManager
 
+RENTAL_PROPERTY_UPDATE_FIELDS = [
+    "booking_id",
+    "feed",
+    "property_name",
+    "property_slug",
+    "property_type",
+    "activity_categories",
+    "property_attributes",
+    "review_score_general",
+    "review_score",
+    "number_of_review",
+    "languages",
+    "supported_languages",
+    "images",
+    "uploaded_image_count",
+    "feed_provider_url",
+    "partners_url",
+    "display",
+    "zip_code",
+    "country_code",
+    "city",
+    "location_id",
+    "latlon",
+    "geography_latlon",
+]
 
-# Handles all database operations related to RentalProperty rows built from attraction_details, plus their localized content and photos.
+RENTAL_PROPERTY_LOCALIZE_UPDATE_FIELDS = [
+    "feed",
+    "property_name",
+    "property_description",
+    "property_slug",
+    "property_type",
+    "address",
+]
+
+PROPERTY_REVIEWS_UPDATE_FIELDS = [
+    "feed",
+    "country_code",
+    "language_code",
+    "score",
+    "summary",
+    "reviewer",
+    "review_date",
+]
+
+
 class AttractionDBService:
 
     @staticmethod
@@ -21,11 +65,14 @@ class AttractionDBService:
             return
 
         unique_rows = {row["id"]: row for row in rows}
+        instances = [RentalProperty(**row) for row in unique_rows.values()]
 
-        RentalProperty.objects.on_conflict(
-            ["id"],
-            ConflictAction.UPDATE,
-        ).bulk_insert(list(unique_rows.values()))
+        RentalProperty.objects.bulk_create(
+            instances,
+            update_conflicts=True,
+            unique_fields=["id"],
+            update_fields=RENTAL_PROPERTY_UPDATE_FIELDS,
+        )
 
     @staticmethod
     def save_localized(rows):
@@ -33,22 +80,22 @@ class AttractionDBService:
             return
 
         unique_rows = {}
-
         for row in rows:
             key = (row["property_id"], row["language"], row.get("country_code"))
             unique_rows[key] = row
 
         rows_to_insert = list(unique_rows.values())
-
         for row in rows_to_insert:
-            PartitionManager.ensure_partition(
-                RentalPropertyLocalize, row.get("country_code")
-            )
+            PartitionManager.ensure_partition(RentalPropertyLocalize, row.get("country_code"))
 
-        RentalPropertyLocalize.objects.on_conflict(
-            ["property_id", "language", "country_code"],
-            ConflictAction.UPDATE,
-        ).bulk_insert(rows_to_insert)
+        instances = [RentalPropertyLocalize(**row) for row in rows_to_insert]
+
+        RentalPropertyLocalize.objects.bulk_create(
+            instances,
+            update_conflicts=True,
+            unique_fields=["property_id", "language", "country_code"],
+            update_fields=RENTAL_PROPERTY_LOCALIZE_UPDATE_FIELDS,
+        )
 
     @staticmethod
     def save_photos(rows):
@@ -56,22 +103,20 @@ class AttractionDBService:
             return
 
         unique_rows = {}
-
         for row in rows:
             key = (row["property_id"], row["url"])
             unique_rows[key] = row
 
         rows_to_insert = list(unique_rows.values())
-
         for row in rows_to_insert:
-            PartitionManager.ensure_partition(
-                PropertyImageMeta, row.get("country_code")
-            )
+            PartitionManager.ensure_partition(PropertyImageMeta, row.get("country_code"))
 
-        PropertyImageMeta.objects.on_conflict(
-            ["property_id", "path", "country_code"],
-            ConflictAction.NOTHING,
-        ).bulk_insert(rows_to_insert)
+        instances = [PropertyImageMeta(**row) for row in rows_to_insert]
+
+        PropertyImageMeta.objects.bulk_create(
+            instances,
+            ignore_conflicts=True,
+        )
 
     @staticmethod
     def get_existing_attraction_ids():
@@ -104,12 +149,9 @@ class AttractionDBService:
             to_update.append(prop)
 
         if to_update:
-            RentalProperty.objects.bulk_update(
-                to_update, ["currency", "usd_price"]
-            )
+            RentalProperty.objects.bulk_update(to_update, ["currency", "usd_price"])
 
 
-# Handles all database operations related to attraction reviews.
 class ReviewDBService:
 
     @staticmethod
@@ -117,21 +159,25 @@ class ReviewDBService:
         if not rows:
             return
 
-        unique_rows = {row["id"]: row for row in rows}
+        unique_rows = {}
+        for row in rows:
+            key = (row["id"], row.get("country_code"))
+            unique_rows[key] = row
+
         rows_to_insert = list(unique_rows.values())
-
         for row in rows_to_insert:
-            PartitionManager.ensure_partition(
-                PropertyReviews, row.get("country_code")
-            )
+            PartitionManager.ensure_partition(PropertyReviews, row.get("country_code"))
 
-        PropertyReviews.objects.on_conflict(
-            ["id"],
-            ConflictAction.UPDATE,
-        ).bulk_insert(rows_to_insert)
+        instances = [PropertyReviews(**row) for row in rows_to_insert]
+
+        PropertyReviews.objects.bulk_create(
+            instances,
+            update_conflicts=True,
+            unique_fields=["id", "country_code"],
+            update_fields=PROPERTY_REVIEWS_UPDATE_FIELDS,
+        )
 
 
-# Handles review score breakdowns.
 class ReviewScoreDBService:
 
     @staticmethod
@@ -139,9 +185,7 @@ class ReviewScoreDBService:
         if not scores_by_attraction:
             return
 
-        properties = RentalProperty.objects.filter(
-            id__in=scores_by_attraction.keys()
-        )
+        properties = RentalProperty.objects.filter(id__in=scores_by_attraction.keys())
         to_update = []
 
         for prop in properties:
@@ -152,7 +196,32 @@ class ReviewScoreDBService:
             RentalProperty.objects.bulk_update(to_update, ["review_scores"])
 
 
-# Handles price snapshots from the search feed.
+class SkipPropertiesDBService:
+
+    @staticmethod
+    def save_skips(rows):
+        if not rows:
+            return
+
+        unique_rows = {row["property_id"]: row for row in rows}
+        instances = [
+            SkipProperties(
+                property_id=row["property_id"],
+                feed=Feed.BOOKING_ATTRACTION,
+                reason=row["reason"],
+                updated_by="import_attractions",
+            )
+            for row in unique_rows.values()
+        ]
+
+        SkipProperties.objects.bulk_create(
+            instances,
+            update_conflicts=True,
+            unique_fields=["property_id"],
+            update_fields=["feed", "reason", "updated_by", "updated_at"],
+        )
+
+
 class PriceHistoryDBService:
 
     @staticmethod
@@ -161,8 +230,29 @@ class PriceHistoryDBService:
             return
 
         for row in rows:
-            PartitionManager.ensure_partition(
-                PriceHistory, row.get("country_code")
-            )
+            PartitionManager.ensure_partition(PriceHistory, row.get("country_code"))
 
-        PriceHistory.objects.bulk_insert(rows)
+        instances = [PriceHistory(**row) for row in rows]
+
+        PriceHistory.objects.bulk_create(instances)
+
+
+class LocationDBService:
+
+    @staticmethod
+    def save_locations(rows):
+        if not rows:
+            return
+
+        unique_rows = {row["id"]: row for row in rows if row}
+        if not unique_rows:
+            return
+
+        instances = [Location(**row) for row in unique_rows.values()]
+
+        Location.objects.bulk_create(
+            instances,
+            update_conflicts=True,
+            unique_fields=["id"],
+            update_fields=["name", "short_name", "center", "geography_center", "display_list"],
+        )
