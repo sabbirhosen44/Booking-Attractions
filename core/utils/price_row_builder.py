@@ -5,8 +5,6 @@ from apps.attractions.models import Feed
 
 
 # Builds PriceHistory rows (as plain dicts) from a raw Booking Attractions
-# search snapshot record. Also surfaces (currency, total) so the caller can
-# optionally refresh RentalProperty.currency / RentalProperty.usd_price.
 class PriceRowBuilder:
 
     @staticmethod

@@ -1,6 +1,5 @@
 from apps.attractions.models import (
     Feed,
-    Location,
     PriceHistory,
     PropertyImageMeta,
     PropertyReviews,
@@ -31,6 +30,7 @@ RENTAL_PROPERTY_UPDATE_FIELDS = [
     "display",
     "zip_code",
     "country_code",
+    "country",
     "city",
     "location_id",
     "latlon",
@@ -151,6 +151,23 @@ class AttractionDBService:
         if to_update:
             RentalProperty.objects.bulk_update(to_update, ["currency", "usd_price"])
 
+    @staticmethod
+    def update_dates(updates):
+        if not updates:
+            return
+
+        properties = RentalProperty.objects.filter(id__in=updates.keys())
+        to_update = []
+
+        for prop in properties:
+            check_in, check_out = updates[prop.id]
+            prop.check_in = check_in.isoformat() if check_in else None
+            prop.check_out = check_out.isoformat() if check_out else None
+            to_update.append(prop)
+
+        if to_update:
+            RentalProperty.objects.bulk_update(to_update, ["check_in", "check_out"])
+
 
 class ReviewDBService:
 
@@ -235,24 +252,3 @@ class PriceHistoryDBService:
         instances = [PriceHistory(**row) for row in rows]
 
         PriceHistory.objects.bulk_create(instances)
-
-
-class LocationDBService:
-
-    @staticmethod
-    def save_locations(rows):
-        if not rows:
-            return
-
-        unique_rows = {row["id"]: row for row in rows if row}
-        if not unique_rows:
-            return
-
-        instances = [Location(**row) for row in unique_rows.values()]
-
-        Location.objects.bulk_create(
-            instances,
-            update_conflicts=True,
-            unique_fields=["id"],
-            update_fields=["name", "short_name", "center", "geography_center", "display_list"],
-        )

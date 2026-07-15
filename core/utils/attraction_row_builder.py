@@ -3,6 +3,7 @@ from django.utils.text import slugify
 
 from apps.attractions.models import Feed
 from core.utils.location_resolver import LocationResolver
+from core.utils.country_resolver import CountryResolver
 
 
 class AttractionRowBuilder:
@@ -10,8 +11,9 @@ class AttractionRowBuilder:
     MAX_IMAGES = 15
     MAX_SLUG_LENGTH = 150
 
-    def __init__(self, location_resolver=None):
+    def __init__(self, location_resolver=None, country_resolver=None):
         self.location_resolver = location_resolver or LocationResolver()
+        self.country_resolver = country_resolver or CountryResolver()
 
     @staticmethod
     def _pick_primary_location(locations):
@@ -57,31 +59,6 @@ class AttractionRowBuilder:
             return None
         return self.location_resolver.resolve(country_code, city_code)
 
-    def _build_location_row(self, country_code, city_code, city_name, point):
-        if city_code is None or point is None:
-            return None
-
-        location_id = f"{country_code}_{city_code}"[:20]
-        name = city_name or str(city_code)
-        slug = self._build_slug(name) or str(city_code)
-
-        return {
-            "id": location_id,
-            "ancestors": [{"id": country_code, "type": "country"}],
-            "breadcrumbs": [country_code, name],
-            "center": point,
-            "geography_center": point,
-            "country_code": country_code,
-            "display_list": [name],
-            "slug": slug,
-            "location_type": "city",
-            "location_types": ["city"],
-            "name": name[:250],
-            "parent_id": country_code or "",
-            "parent_path": [country_code] if country_code else [],
-            "short_name": name[:150],
-        }
-
     def build(self, item):
         attraction_id = item["id"]
         names = item.get("name", {}) or {}
@@ -92,7 +69,6 @@ class AttractionRowBuilder:
         country_code = (primary_location.get("country") or "xx").lower()
         city_code = primary_location.get("city")
         point = self._build_point(primary_location.get("coordinates"))
-        city_name = self._resolve_city(country_code, city_code)
 
         ratings = item.get("ratings", {}) or {}
         urls = item.get("urls", {}) or {}
@@ -133,7 +109,8 @@ class AttractionRowBuilder:
             "display": primary_location.get("address"),
             "zip_code": primary_location.get("post_code"),
             "country_code": country_code,
-            "city": city_name,
+            "country": self.country_resolver.resolve(country_code),
+            "city": self._resolve_city(country_code, city_code),
             "location_id": str(city_code) if city_code is not None else None,
             "latlon": point,
             "geography_latlon": point,
@@ -166,6 +143,4 @@ class AttractionRowBuilder:
                 }
             )
 
-        location_row = self._build_location_row(country_code, city_code, city_name, point)
-
-        return property_row, localized_rows, photo_rows, location_row
+        return property_row, localized_rows, photo_rows

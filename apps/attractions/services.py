@@ -8,7 +8,6 @@ from django.db import close_old_connections
 
 from apps.attractions.db_services import (
     AttractionDBService,
-    LocationDBService,
     PriceHistoryDBService,
     ReviewDBService,
     ReviewScoreDBService,
@@ -62,7 +61,7 @@ class AttractionDetailsImporter(BaseImporter):
         super().__init__(config)
         self.row_builder = AttractionRowBuilder()
 
-    def _flush(self, properties, localized, photos, locations):
+    def _flush(self, properties, localized, photos):
         with LockedWrite():
             if properties:
                 AttractionDBService.save_properties(properties.items())
@@ -73,19 +72,14 @@ class AttractionDetailsImporter(BaseImporter):
             if photos:
                 AttractionDBService.save_photos(photos.items())
 
-            if locations:
-                LocationDBService.save_locations(locations.items())
-
         properties.clear()
         localized.clear()
         photos.clear()
-        locations.clear()
 
     def process_file(self, file_path):
         properties = BatchBuffer(self.config.BATCH_SIZE)
         localized = BatchBuffer(self.config.BATCH_SIZE)
         photos = BatchBuffer(self.config.BATCH_SIZE)
-        locations = BatchBuffer(self.config.BATCH_SIZE)
 
         try:
             print(f"Processing {file_path}")
@@ -93,7 +87,7 @@ class AttractionDetailsImporter(BaseImporter):
             with open(file_path, "rb") as f:
                 for item in ijson.items(f, "item", use_float=True):
 
-                    property_row, localized_rows, photo_rows, location_row = (
+                    property_row, localized_rows, photo_rows = (
                         self.row_builder.build(item)
                     )
 
@@ -105,14 +99,11 @@ class AttractionDetailsImporter(BaseImporter):
                     for row in photo_rows:
                         photos.add(row)
 
-                    if location_row:
-                        locations.add(location_row)
-
                     if properties.is_full():
-                        self._flush(properties, localized, photos, locations)
+                        self._flush(properties, localized, photos)
 
-            if properties or localized or photos or locations:
-                self._flush(properties, localized, photos, locations)
+            if properties or localized or photos:
+                self._flush(properties, localized, photos)
 
         finally:
             self.close_connection()
@@ -243,7 +234,7 @@ class SearchImporter(BaseImporter):
         self.skip_counter = SkipCounter()
         self.row_builder = PriceRowBuilder()
 
-    def _flush(self, prices, property_updates, skips):
+    def _flush(self, prices, property_updates, date_updates, skips):
         with LockedWrite():
             if prices:
                 PriceHistoryDBService.save_prices(prices.items())
@@ -251,16 +242,21 @@ class SearchImporter(BaseImporter):
             if property_updates:
                 AttractionDBService.update_pricing(dict(property_updates))
 
+            if date_updates:
+                AttractionDBService.update_dates(dict(date_updates))
+
             if skips:
                 SkipPropertiesDBService.save_skips(skips.items())
 
         prices.clear()
         property_updates.clear()
+        date_updates.clear()
         skips.clear()
 
     def process_file(self, file_path):
         prices = BatchBuffer(self.config.BATCH_SIZE)
         property_updates = {}
+        date_updates = {}
         skips = BatchBuffer(self.config.BATCH_SIZE)
 
         try:
@@ -296,11 +292,17 @@ class SearchImporter(BaseImporter):
                     if currency and total is not None:
                         property_updates[attraction_id] = (currency, total)
 
-                    if prices.is_full():
-                        self._flush(prices, property_updates, skips)
+                    if price_row.get("check_in") or price_row.get("check_out"):
+                        date_updates[attraction_id] = (
+                            price_row.get("check_in"),
+                            price_row.get("check_out"),
+                        )
 
-            if prices or property_updates or skips:
-                self._flush(prices, property_updates, skips)
+                    if prices.is_full():
+                        self._flush(prices, property_updates, date_updates, skips)
+
+            if prices or property_updates or date_updates or skips:
+                self._flush(prices, property_updates, date_updates, skips)
 
         finally:
             self.close_connection()
