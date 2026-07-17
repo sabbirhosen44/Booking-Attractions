@@ -20,3 +20,8 @@ port = 5432
 
 [import]
 data_dir = "data"
+
+[iceberg]
+warehouse_dir = "spark_pipeline/warehouse"
+catalog_name = "booking"
+database = "attractions"

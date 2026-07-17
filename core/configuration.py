@@ -19,3 +19,5 @@ DEBUG = CONFIG[ENVIRONMENT]["debug"]
 DATABASE = CONFIG["database"]
 
 IMPORT = CONFIG["import"]
+
+ICEBERG = CONFIG["iceberg"]
