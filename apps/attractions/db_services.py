@@ -10,7 +10,7 @@ from apps.attractions.models import (
 
 from core.utils.partition_manager import PartitionManager
 
-RENTAL_PROPERTY_UPDATE_FIELDS = [
+RENTAL_PROPERTY_FIELDS = [
     "booking_id",
     "feed",
     "property_name",
@@ -37,7 +37,7 @@ RENTAL_PROPERTY_UPDATE_FIELDS = [
     "geography_latlon",
 ]
 
-RENTAL_PROPERTY_LOCALIZE_UPDATE_FIELDS = [
+RENTAL_PROPERTY_LOCALIZE_FIELDS = [
     "feed",
     "property_name",
     "property_description",
@@ -46,7 +46,7 @@ RENTAL_PROPERTY_LOCALIZE_UPDATE_FIELDS = [
     "address",
 ]
 
-PROPERTY_REVIEWS_UPDATE_FIELDS = [
+PROPERTY_REVIEWS_FIELDS = [
     "feed",
     "country_code",
     "language_code",
@@ -57,6 +57,7 @@ PROPERTY_REVIEWS_UPDATE_FIELDS = [
 ]
 
 
+# Handles saving attraction details, translations, photos and price/date updates in the database
 class AttractionDBService:
 
     @staticmethod
@@ -71,7 +72,7 @@ class AttractionDBService:
             instances,
             update_conflicts=True,
             unique_fields=["id"],
-            update_fields=RENTAL_PROPERTY_UPDATE_FIELDS,
+            update_fields=RENTAL_PROPERTY_FIELDS,
         )
 
     @staticmethod
@@ -94,7 +95,7 @@ class AttractionDBService:
             instances,
             update_conflicts=True,
             unique_fields=["property_id", "language", "country_code"],
-            update_fields=RENTAL_PROPERTY_LOCALIZE_UPDATE_FIELDS,
+            update_fields=RENTAL_PROPERTY_LOCALIZE_FIELDS,
         )
 
     @staticmethod
@@ -169,6 +170,7 @@ class AttractionDBService:
             RentalProperty.objects.bulk_update(to_update, ["check_in", "check_out"])
 
 
+# Handles saving attraction reviews in the database
 class ReviewDBService:
 
     @staticmethod
@@ -191,10 +193,11 @@ class ReviewDBService:
             instances,
             update_conflicts=True,
             unique_fields=["id", "country_code"],
-            update_fields=PROPERTY_REVIEWS_UPDATE_FIELDS,
+            update_fields=PROPERTY_REVIEWS_FIELDS,
         )
 
 
+# Handles saving attraction review scores in the database
 class ReviewScoreDBService:
 
     @staticmethod
@@ -213,6 +216,7 @@ class ReviewScoreDBService:
             RentalProperty.objects.bulk_update(to_update, ["review_scores"])
 
 
+# Handles saving attractions that were skipped during import
 class SkipPropertiesDBService:
 
     @staticmethod
@@ -239,6 +243,7 @@ class SkipPropertiesDBService:
         )
 
 
+# Handles saving attraction price history in the database
 class PriceHistoryDBService:
 
     @staticmethod

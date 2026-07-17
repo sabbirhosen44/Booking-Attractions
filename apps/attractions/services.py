@@ -23,6 +23,7 @@ from core.utils.review_row_builder import ReviewRowBuilder
 from core.utils.skip_counter import SkipCounter
 
 
+# Base class shared by all importers: file discovery, threading, connection cleanup
 class BaseImporter(ABC):
 
     folder_name = None
@@ -53,6 +54,7 @@ class BaseImporter(ABC):
         close_old_connections()
 
 
+# Imports attraction details into RentalProperty, RentalPropertyLocalize and PropertyImageMeta
 class AttractionDetailsImporter(BaseImporter):
 
     folder_name = "attraction_details"
@@ -109,6 +111,7 @@ class AttractionDetailsImporter(BaseImporter):
             self.close_connection()
 
 
+# Imports attraction reviews into PropertyReviews, skipping ones with no matching attraction
 class ReviewsImporter(BaseImporter):
 
     folder_name = "reviews"
@@ -193,6 +196,7 @@ class ReviewsImporter(BaseImporter):
         print(f"\nSkipped reviews: {self.skip_counter.total}")
 
 
+# Folds review score breakdowns into RentalProperty.review_scores
 class ReviewScoresImporter(BaseImporter):
 
     folder_name = "reviews_scores"
@@ -224,6 +228,7 @@ class ReviewScoresImporter(BaseImporter):
             self.close_connection()
 
 
+# Imports search/price snapshots into PriceHistory and refreshes RentalProperty pricing
 class SearchImporter(BaseImporter):
 
     folder_name = "search"
@@ -317,6 +322,7 @@ class SearchImporter(BaseImporter):
         print(f"\nSkipped price snapshots: {self.skip_counter.total}")
 
 
+# Runs all importers in order and reports total elapsed time
 class DataImportRunner:
 
     importer_classes = [
