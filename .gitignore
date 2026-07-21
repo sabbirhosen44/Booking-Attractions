@@ -105,6 +105,8 @@ credentials.json
 
 # Apache Iceberg / PySpark local warehouse
 
+spark_pipeline/warehouse/
+spark_pipeline/warehouse/**
 
 # Optional: Ignore migrations
 
