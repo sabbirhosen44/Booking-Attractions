@@ -235,7 +235,19 @@ Each Iceberg table mirrors the full column set of its corresponding Django model
 
 Since Iceberg data is stored as partitioned Parquet files, the most reliable way to inspect it is to query it back through Spark (rather than opening `.parquet` files directly, which won't render as text).
 
-**1. Make sure `jupyter`, `pandas`, and `pyarrow` are in `requirements.txt`, then rebuild:**
+**1. Make sure `requirements.txt` includes the following, then rebuild:**
+
+```
+jupyter
+pandas>=2.0
+pyarrow>=14.0
+setuptools
+```
+
+* `jupyter` — the notebook server itself
+* `pandas` — needed for `.toPandas()` to render Spark results as a table
+* `pyarrow` — required alongside pandas for Spark ↔ pandas conversion
+* `setuptools` — provides a modern replacement for Python's removed `distutils` module, which `pyspark` still imports internally on Python 3.12+ (without this you'll hit `ModuleNotFoundError: No module named 'distutils'`)
 
 ```bash
 docker compose build web
@@ -263,8 +275,8 @@ import pandas as pd
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 
-from pyspark_etl.session import get_spark_session
-spark = get_spark_session()
+from pyspark_etl.session import SparkSessionFactory
+spark = SparkSessionFactory.create()
 
 result = spark.sql("SELECT * FROM booking.attractions.rental_property LIMIT 20")
 pdf = result.toPandas()
@@ -284,6 +296,20 @@ spark.sql("SELECT country_code, COUNT(*) as count FROM booking.attractions.renta
 ```
 
 > Note: on child tables (`property_reviews`, `price_history`, `rental_property_localize`, `property_image_meta`, `skip_properties`), the `id` column will always show as `NaN`/`NULL`. This is expected — it exists only for column parity with the Postgres schema; Iceberg has no autoincrement to populate it. Use the table's actual foreign-key/reference columns (e.g. `property_id`) to identify rows instead.
+
+
+## Screenshots
+
+Sample table output from the Iceberg pipeline, viewed via Jupyter Notebook as described above. Images are stored in `static/`.
+
+| Table | Preview |
+|---|---|
+| `rental_property` | ![rental_property](static/rental_property.png) |
+| `rental_property_localize` | ![rental_property_localize](static/rental_property_localize.png) |
+| `property_image_meta` | ![property_image_meta](static/property_image_meta.png) |
+| `property_reviews` | ![property_reviews](static/property_reviews.png) |
+| `price_history` | ![price_history](static/price_history.png) |
+| `skip_properties` | ![skip_properties](static/skip_properties.png) |
 
 
 ## Author
