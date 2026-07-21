@@ -1,0 +1,116 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "00cb0a50-1825-4ba9-8e17-44eed0e82d12",
+  "location" : "/app/spark_pipeline/warehouse/attractions/price_history",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1784614805961,
+  "last-column-id" : 8,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "id",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "property_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "price",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "check_in",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "check_out",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 6,
+      "name" : "created_at",
+      "required" : false,
+      "type" : "timestamptz"
+    }, {
+      "id" : 7,
+      "name" : "feed",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "country_code",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ {
+      "name" : "country_code",
+      "transform" : "identity",
+      "source-id" : 8,
+      "field-id" : 1000
+    } ]
+  } ],
+  "last-partition-id" : 1000,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "owner" : "root",
+    "write.parquet.compression-codec" : "zstd"
+  },
+  "current-snapshot-id" : 3693697079504394257,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 3693697079504394257,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 3693697079504394257,
+    "timestamp-ms" : 1784614805961,
+    "summary" : {
+      "operation" : "append",
+      "spark.app.id" : "local-1784614020326",
+      "added-data-files" : "72",
+      "added-records" : "30900",
+      "added-files-size" : "503297",
+      "changed-partition-count" : "72",
+      "total-records" : "30900",
+      "total-files-size" : "503297",
+      "total-data-files" : "72",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0",
+      "engine-version" : "3.5.4",
+      "app-id" : "local-1784614020326",
+      "engine-name" : "spark",
+      "iceberg-version" : "Apache Iceberg 1.6.1 (commit 8e9d59d299be42b0bca9461457cd1e95dbaad086)"
+    },
+    "manifest-list" : "/app/spark_pipeline/warehouse/attractions/price_history/metadata/snap-3693697079504394257-1-092b0f0f-31b5-4129-b3aa-8a81bc9d079c.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "partition-statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1784614805961,
+    "snapshot-id" : 3693697079504394257
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1784614029354,
+    "metadata-file" : "/app/spark_pipeline/warehouse/attractions/price_history/metadata/v1.metadata.json"
+  } ]
+}

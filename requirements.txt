@@ -8,3 +8,6 @@ sqlparse==0.5.5
 typing_extensions==4.16.0
 django-postgres-extra>=2.0.4
 pyspark==3.5.4
+jupyter
+pandas>=2.0
+pyarrow>=14.0

@@ -1,6 +1,6 @@
 # Python
 
-**pycache**/
+__pycache__/
 *.py[cod]
 *$py.class
 
@@ -71,6 +71,10 @@ dist/
 # Jupyter
 
 .ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+Untitled*.ipynb
+untitled*.ipynb
+*.ipynb
 
 # Temporary Files
 
@@ -99,10 +103,13 @@ docker-compose.override.yml
 secrets/
 credentials.json
 
+# Apache Iceberg / PySpark local warehouse
+
+
 # Optional: Ignore migrations
 
 # Uncomment only if your team does not track migrations
 
 # */migrations/*
 
-# !*/migrations/**init**.py
+# !*/migrations/__init__.py
