@@ -1,26 +1,33 @@
-from pyspark_etl.catalog.schema_defs import PARTITIONED_TABLES, TABLE_COLUMNS
+from pyspark_etl.catalog.schema_defs import TableSchemas
 from pyspark_etl.config import SparkConfig
 
 
-def _ddl_for(table_name, columns):
-    column_lines = ",\n            ".join(f"{name} {dtype}" for name, dtype in columns)
-    partition_clause = (
-        "\n        PARTITIONED BY (country_code)" if table_name in PARTITIONED_TABLES else ""
-    )
+# Creates the Iceberg database and target tables
+class IcebergTableManager:
 
-    return f"""
+    @staticmethod
+    def _ddl_for(table_name, columns):
+        column_lines = ",\n            ".join(f"{name} {dtype}" for name, dtype in columns)
+        partition_clause = (
+            "\n        PARTITIONED BY (country_code)"
+            if TableSchemas.is_partitioned(table_name)
+            else ""
+        )
+
+        return f"""
         CREATE TABLE IF NOT EXISTS {{table}} (
             {column_lines}
         ) USING iceberg{partition_clause}
     """
 
-# Creates the Iceberg database and every target table with its full, model-matching column set
-def ensure_tables(spark):
-    catalog = SparkConfig.CATALOG_NAME
-    db = SparkConfig.DATABASE
+    @classmethod
+    def ensure_tables(cls, spark):
+        catalog = SparkConfig.CATALOG_NAME
+        db = SparkConfig.DATABASE
 
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS {catalog}.{db}")
+        spark.sql(f"CREATE DATABASE IF NOT EXISTS {catalog}.{db}")
 
-    for table_name, columns in TABLE_COLUMNS.items():
-        ddl = _ddl_for(table_name, columns).format(table=SparkConfig.table(table_name))
-        spark.sql(ddl)
+        for table_name in TableSchemas.TABLE_COLUMNS:
+            columns = TableSchemas.columns_for(table_name)
+            ddl = cls._ddl_for(table_name, columns).format(table=SparkConfig.table(table_name))
+            spark.sql(ddl)
