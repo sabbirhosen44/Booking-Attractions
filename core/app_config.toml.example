@@ -22,6 +22,6 @@ port = 5432
 data_dir = "data"
 
 [iceberg]
-warehouse_dir = "spark_pipeline/warehouse"
+warehouse_dir = "spark_pipeline_data/warehouse"
 catalog_name = "booking"
 database = "attractions"

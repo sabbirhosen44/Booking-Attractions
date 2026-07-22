@@ -100,8 +100,10 @@ booking_attraction/
 │   │   ├── rental_property.py
 │   │   ├── property_reviews.py
 │   │   └── price_history.py
-│   └── writers/
-│       └── iceberg_writer.py
+│   ├── writers/
+│   │   └── iceberg_writer.py
+│   └── spark_pipeline_data/
+│       └── warehouse/          # local Iceberg warehouse (generated at runtime)
 │
 ├── data/
 │   ├── attraction_details/
@@ -110,9 +112,6 @@ booking_attraction/
 │   ├── search/
 │   └── static/
 │       └── location_mapping/
-│
-├── spark_pipeline/
-│   └── warehouse/          # local Iceberg warehouse (generated at runtime)
 │
 ├── docker/
 │   └── django/
@@ -194,10 +193,12 @@ For the Iceberg pipeline, `core/app_config.toml` also needs an `[iceberg]` secti
 
 ```toml
 [iceberg]
-warehouse_dir = "spark_pipeline/warehouse"
+warehouse_dir = "spark_pipeline_data/warehouse"
 catalog_name = "booking"
 database = "attractions"
 ```
+
+> `warehouse_dir` is resolved **relative to the `pyspark_etl/` package folder**, not the project root — so with the value above, the actual warehouse ends up at `pyspark_etl/spark_pipeline_data/warehouse/`.
 
 
 ## Run Import — Postgres Pipeline
@@ -228,7 +229,18 @@ This runs the same import logic against Apache Iceberg tables (local filesystem 
 
 Each Iceberg table mirrors the full column set of its corresponding Django model (not just the fields this importer populates), so schema stays comparable across both pipelines.
 
-> If `pyspark_etl/catalog/schema_defs.py` changes (columns added/removed), existing Iceberg tables do **not** auto-migrate. Delete `spark_pipeline/warehouse/` and re-run the importer from scratch after any schema change.
+> If `pyspark_etl/catalog/schema_defs.py` changes (columns added/removed), existing Iceberg tables do **not** auto-migrate. Delete the warehouse and re-run the importer from scratch after any schema change:
+>
+> ```bash
+> docker compose exec web rm -rf /app/pyspark_etl/spark_pipeline_data
+> docker compose exec web python manage.py import_attractions_iceberg
+> ```
+>
+> Run the delete **inside the container** (via `docker compose exec`), not on the host — files created by Spark inside the container are often owned by root, so deleting them directly from the host shell can fail with `Permission denied`.
+
+### Troubleshooting: `ValidationException: Found conflicting files`
+
+If a run fails partway through with an Iceberg `ValidationException` about conflicting files during a `MERGE INTO`, it almost always means the warehouse still has leftover data from a previous partial/failed run. Clear it and re-run clean using the commands above. Don't just re-run on top of a partial warehouse — it can leave the table in a mixed state.
 
 
 ## Inspecting Iceberg Data with Jupyter Notebook
@@ -268,7 +280,19 @@ http://127.0.0.1:8888/tree?token=<token>
 
 > Requires port `8888` to be mapped in `docker-compose.yml` under the `web` service's `ports:` section.
 
-**3. In a new notebook cell, query a table through Spark:**
+**3. If `requirements.txt` hasn't been rebuilt yet, install the packages directly from inside the notebook first.**
+
+Open a new cell and run:
+
+```python
+!pip install pandas pyarrow setuptools
+```
+
+Then restart the kernel (**Kernel → Restart Kernel**) so the new packages are picked up.
+
+> This is a quick fix for the current session only — packages installed this way disappear if the container is rebuilt. To make it permanent, add `pandas`, `pyarrow`, and `setuptools` to `requirements.txt` and run `docker compose build web` as shown above.
+
+**4. In a new notebook cell, query a table through Spark:**
 
 ```python
 import pandas as pd

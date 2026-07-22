@@ -23,6 +23,7 @@ env/
 db.sqlite3
 *.sqlite3
 media/
+staticfiles/
 
 # Local Configuration
 
@@ -104,8 +105,8 @@ credentials.json
 
 # Apache Iceberg / PySpark local warehouse
 
-spark_pipeline/warehouse/
-spark_pipeline/warehouse/**
+pyspark_etl/spark_pipeline_data/
+pyspark_etl/spark_pipeline_data/**
 
 # Optional: Ignore migrations
 
