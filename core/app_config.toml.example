@@ -25,3 +25,8 @@ data_dir = "data"
 warehouse_dir = "spark_pipeline_data/warehouse"
 catalog_name = "booking"
 database = "attractions"
+
+[elasticsearch]
+host = "http://elasticsearch:9200"
+index_prefix = "booking_attraction"
+batch_size = 500

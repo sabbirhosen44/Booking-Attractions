@@ -1,47 +1,23 @@
 # Booking Attractions
 
-A data importer that processes Booking.com Attractions datasets and loads them into a database, using streaming/batch/parallel processing. The project contains **two parallel, independent pipelines** that do the same job into two different storage backends, built so the team can compare them:
+A data importer that processes Booking.com Attractions datasets and loads them into a database, using streaming/batch/parallel processing. The project contains **three parallel, independent pipelines** that do the same job into different storage backends, built so the team can compare them:
 
 1. **Postgres pipeline** — Django ORM + `psqlextra`, writes into a partitioned PostgreSQL/PostGIS schema.
 2. **Iceberg pipeline** — PySpark, writes into local filesystem-backed Apache Iceberg tables via a Hadoop catalog.
+3. **Elasticsearch pipeline** — plain Python + `ijson`, writes into local Elasticsearch indices via Docker.
 
-Both pipelines read the exact same source files under `data/` and populate the same logical entities (attractions, localized content, photos, reviews, review scores, price history, skipped/unmatched records) — just into different targets.
-
-## Features
-
-* Import attraction details
-* Import localized names and descriptions
-* Import attraction photos
-* Import attraction reviews
-* Import review score breakdowns
-* Import price/date snapshots
-* Batch processing for large datasets
-* Streaming JSON parsing using `ijson`
-* Bulk create and upsert operations (Postgres)
-* Iceberg `MERGE INTO` upserts (Iceberg pipeline)
-* Thread-safe database writes
-* Dedicated database service layer
-* Centralized configuration using TOML
-* PostgreSQL database support
-* PostGIS support for spatial data
-* Apache Iceberg support via PySpark + Hadoop catalog
-* Dockerized development environment
-* Conflict-safe bulk upserts for PostgreSQL
-* Jupyter notebook support for inspecting Iceberg data
+All three pipelines read the exact same source files under `data/` and populate the same logical entities (attractions, localized content, photos, reviews, review scores, price history, skipped/unmatched records) — just into different targets.
 
 
 ## Tech Stack
 
 * Python 3.12+
 * Django ORM
-* PostgreSQL 16
-* PostGIS 3.4
+* PostgreSQL 16 + PostGIS 3.4
+* PySpark 3.5.4 + Apache Iceberg (Spark runtime jar 1.6.1, Scala 2.12)
+* Elasticsearch 8.x
 * Docker & Docker Compose
 * ijson
-* Psycopg
-* PySpark 3.5.4
-* Apache Iceberg (Spark runtime jar 1.6.1, Scala 2.12)
-* Jupyter Notebook
 
 
 ## Project Structure
@@ -53,7 +29,8 @@ booking_attraction/
 │       ├── management/
 │       │   └── commands/
 │       │       ├── import_attractions.py
-│       │       └── import_attractions_iceberg.py
+│       │       ├── import_attractions_iceberg.py
+│       │       └── import_attractions_elasticsearch.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
@@ -63,23 +40,10 @@ booking_attraction/
 │
 ├── core/
 │   ├── utils/
-│   │   ├── attraction_row_builder.py
-│   │   ├── review_row_builder.py
-│   │   ├── price_row_builder.py
-│   │   ├── location_resolver.py
-│   │   ├── partition_manager.py
-│   │   ├── batch_buffer.py
-│   │   ├── import_config.py
-│   │   ├── locked_write.py
-│   │   └── skip_counter.py
-│   │
 │   ├── app_config.toml.example
 │   ├── configuration.py
 │   ├── settings.py
-│   ├── urls.py
-│   ├── asgi.py
-│   ├── wsgi.py
-│   └── __init__.py
+│   └── ...
 │
 ├── pyspark_etl/
 │   ├── config.py
@@ -87,23 +51,29 @@ booking_attraction/
 │   ├── pipeline.py
 │   ├── services.py
 │   ├── catalog/
-│   │   ├── schema_defs.py
-│   │   ├── tables.py
-│   │   └── align.py
 │   ├── schemas/
-│   │   └── source.py
+│   ├── readers/
+│   ├── transforms/
+│   ├── writers/
+│   └── spark_pipeline_data/
+│       └── warehouse/          # local Iceberg warehouse (generated at runtime)
+│
+├── elasticsearch_etl/
+│   ├── config.py
+│   ├── client.py
+│   ├── services.py
+│   ├── pipeline.py
+│   ├── indices/
+│   │   ├── mappings.py
+│   │   └── index_manager.py
 │   ├── readers/
 │   │   ├── json_reader.py
 │   │   └── location_mapping_reader.py
-│   ├── transforms/
-│   │   ├── slug.py
-│   │   ├── rental_property.py
-│   │   ├── property_reviews.py
-│   │   └── price_history.py
-│   ├── writers/
-│   │   └── iceberg_writer.py
-│   └── spark_pipeline_data/
-│       └── warehouse/          # local Iceberg warehouse (generated at runtime)
+│   └── transforms/
+│       ├── slug.py
+│       ├── rental_property.py
+│       ├── property_reviews.py
+│       └── price_history.py
 │
 ├── data/
 │   ├── attraction_details/
@@ -140,19 +110,14 @@ Copy the configuration file:
 cp core/app_config.toml.example core/app_config.toml
 ```
 
-Build Docker containers:
+Build and start containers:
 
 ```bash
 docker compose build
-```
-
-Start services:
-
-```bash
 docker compose up -d
 ```
 
-Run migrations:
+Run migrations (Postgres pipeline only):
 
 ```bash
 docker compose exec web python manage.py migrate
@@ -180,16 +145,29 @@ data/
             └── region.json
 ```
 
+This same folder feeds all three pipelines.
+
+
+---
+
+# Postgres Pipeline
+
+## Run
+
+```bash
+docker compose exec web python manage.py import_attractions
+```
+
+Processes, in order: attraction details → localized content → photos → reviews → review score breakdowns → price/date snapshots. Reviews and search records referencing an attraction not yet imported are logged to `SkipProperties` rather than failing the run.
+
+
+---
+
+# Iceberg / PySpark Pipeline
 
 ## Configuration
 
-Create a local configuration file:
-
-```bash
-cp core/app_config.toml.example core/app_config.toml
-```
-
-For the Iceberg pipeline, `core/app_config.toml` also needs an `[iceberg]` section:
+`core/app_config.toml` needs an `[iceberg]` section:
 
 ```toml
 [iceberg]
@@ -200,54 +178,34 @@ database = "attractions"
 
 > `warehouse_dir` is resolved **relative to the `pyspark_etl/` package folder**, not the project root — so with the value above, the actual warehouse ends up at `pyspark_etl/spark_pipeline_data/warehouse/`.
 
-
-## Run Import — Postgres Pipeline
-
-```bash
-docker compose exec web python manage.py import_attractions
-```
-
-The importer will automatically process, in order:
-
-* Attraction details
-* Localized content
-* Photos
-* Reviews
-* Review score breakdowns
-* Price/date snapshots
-
-Reviews and search records that reference an attraction not yet imported are logged to `SkipProperties` rather than failing the run.
-
-
-## Run Import — Iceberg / PySpark Pipeline
+## Run
 
 ```bash
 docker compose exec web python manage.py import_attractions_iceberg
 ```
 
-This runs the same import logic against Apache Iceberg tables (local filesystem storage, Hadoop catalog) instead of PostgreSQL. It can be run independently of, and without interfering with, the Postgres pipeline — both read from the same `data/` folder but write to entirely separate storage.
+Runs the same import logic against Apache Iceberg tables (local filesystem storage, Hadoop catalog) instead of PostgreSQL. Can run independently of, and without interfering with, the Postgres pipeline — both read from the same `data/` folder but write to entirely separate storage. Each Iceberg table mirrors the full column set of its corresponding Django model, not just the fields this importer populates.
 
-Each Iceberg table mirrors the full column set of its corresponding Django model (not just the fields this importer populates), so schema stays comparable across both pipelines.
+## Schema changes
 
-> If `pyspark_etl/catalog/schema_defs.py` changes (columns added/removed), existing Iceberg tables do **not** auto-migrate. Delete the warehouse and re-run the importer from scratch after any schema change:
->
-> ```bash
-> docker compose exec web rm -rf /app/pyspark_etl/spark_pipeline_data
-> docker compose exec web python manage.py import_attractions_iceberg
-> ```
->
-> Run the delete **inside the container** (via `docker compose exec`), not on the host — files created by Spark inside the container are often owned by root, so deleting them directly from the host shell can fail with `Permission denied`.
+If `pyspark_etl/catalog/schema_defs.py` changes (columns added/removed), existing Iceberg tables do **not** auto-migrate. Delete the warehouse and re-run from scratch:
 
-### Troubleshooting: `ValidationException: Found conflicting files`
+```bash
+docker compose exec web rm -rf /app/pyspark_etl/spark_pipeline_data
+docker compose exec web python manage.py import_attractions_iceberg
+```
 
-If a run fails partway through with an Iceberg `ValidationException` about conflicting files during a `MERGE INTO`, it almost always means the warehouse still has leftover data from a previous partial/failed run. Clear it and re-run clean using the commands above. Don't just re-run on top of a partial warehouse — it can leave the table in a mixed state.
+Run the delete **inside the container**, not on the host — files created by Spark inside the container are often owned by root, so deleting them directly from the host shell can fail with `Permission denied`.
 
+## Troubleshooting: `ValidationException: Found conflicting files`
 
-## Inspecting Iceberg Data with Jupyter Notebook
+If a run fails partway through with an Iceberg `ValidationException` about conflicting files during a `MERGE INTO`, it almost always means the warehouse still has leftover data from a previous partial/failed run. Clear it and re-run clean using the commands above rather than re-running on top of a partial warehouse.
 
-Since Iceberg data is stored as partitioned Parquet files, the most reliable way to inspect it is to query it back through Spark (rather than opening `.parquet` files directly, which won't render as text).
+## Inspecting data with Jupyter Notebook
 
-**1. Make sure `requirements.txt` includes the following, then rebuild:**
+Since Iceberg data is stored as partitioned Parquet files, the most reliable way to inspect it is to query it back through Spark rather than opening `.parquet` files directly.
+
+**1. Make sure `requirements.txt` includes:**
 
 ```
 jupyter
@@ -259,7 +217,9 @@ setuptools
 * `jupyter` — the notebook server itself
 * `pandas` — needed for `.toPandas()` to render Spark results as a table
 * `pyarrow` — required alongside pandas for Spark ↔ pandas conversion
-* `setuptools` — provides a modern replacement for Python's removed `distutils` module, which `pyspark` still imports internally on Python 3.12+ (without this you'll hit `ModuleNotFoundError: No module named 'distutils'`)
+* `setuptools` — replaces Python's removed `distutils` module, which `pyspark` still imports internally on Python 3.12+
+
+Then rebuild:
 
 ```bash
 docker compose build web
@@ -272,27 +232,17 @@ docker compose up -d
 docker compose exec web jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root
 ```
 
-Copy the printed URL (including the `?token=...` part) into your browser, e.g.:
+Copy the printed URL (including `?token=...`) into your browser. Requires port `8888` mapped in `docker-compose.yml` under the `web` service.
 
-```
-http://127.0.0.1:8888/tree?token=<token>
-```
-
-> Requires port `8888` to be mapped in `docker-compose.yml` under the `web` service's `ports:` section.
-
-**3. If `requirements.txt` hasn't been rebuilt yet, install the packages directly from inside the notebook first.**
-
-Open a new cell and run:
+**3. Quick session-only install** (if `requirements.txt` hasn't been rebuilt yet), in a notebook cell:
 
 ```python
 !pip install pandas pyarrow setuptools
 ```
 
-Then restart the kernel (**Kernel → Restart Kernel**) so the new packages are picked up.
+Then **Kernel → Restart Kernel**.
 
-> This is a quick fix for the current session only — packages installed this way disappear if the container is rebuilt. To make it permanent, add `pandas`, `pyarrow`, and `setuptools` to `requirements.txt` and run `docker compose build web` as shown above.
-
-**4. In a new notebook cell, query a table through Spark:**
+**4. Query a table:**
 
 ```python
 import pandas as pd
@@ -309,8 +259,6 @@ pdf
 
 Swap `rental_property` for any other table: `rental_property_localize`, `property_image_meta`, `property_reviews`, `price_history`, `skip_properties`.
 
-To filter by a specific country, or find which country codes exist:
-
 ```python
 # Filter by country_code
 spark.sql("SELECT * FROM booking.attractions.rental_property WHERE country_code = 'de' LIMIT 20").toPandas()
@@ -319,12 +267,11 @@ spark.sql("SELECT * FROM booking.attractions.rental_property WHERE country_code 
 spark.sql("SELECT country_code, COUNT(*) as count FROM booking.attractions.rental_property GROUP BY country_code ORDER BY count DESC").toPandas()
 ```
 
-> Note: on child tables (`property_reviews`, `price_history`, `rental_property_localize`, `property_image_meta`, `skip_properties`), the `id` column will always show as `NaN`/`NULL`. This is expected — it exists only for column parity with the Postgres schema; Iceberg has no autoincrement to populate it. Use the table's actual foreign-key/reference columns (e.g. `property_id`) to identify rows instead.
-
+> Note: on child tables (`property_reviews`, `price_history`, `rental_property_localize`, `property_image_meta`, `skip_properties`), the `id` column will always show as `NaN`/`NULL` — Iceberg has no autoincrement to populate it. Use the table's actual foreign-key column (e.g. `property_id`) to identify rows instead.
 
 ## Screenshots
 
-Sample table output from the Iceberg pipeline, viewed via Jupyter Notebook as described above. Images are stored in `static/`.
+Sample table output viewed via Jupyter Notebook as described above. Images stored in `static/`.
 
 | Table | Preview |
 |---|---|
@@ -335,6 +282,78 @@ Sample table output from the Iceberg pipeline, viewed via Jupyter Notebook as de
 | `price_history` | ![price_history](static/price_history.png) |
 | `skip_properties` | ![skip_properties](static/skip_properties.png) |
 
+
+---
+
+# Elasticsearch Pipeline
+
+Runs entirely on local Docker — no AWS account or cloud credentials involved.
+
+## Run
+
+```bash
+docker compose exec web python manage.py import_attractions_elasticsearch
+```
+
+Indices are created automatically on first run, named exactly after each table (no prefix): `rental_property`, `rental_property_localize`, `property_image_meta`, `property_reviews`, `price_history`, `skip_properties`.
+
+Each index mirrors the full field set of its corresponding Django model, same rule as the Iceberg pipeline. `rental_property` and `property_reviews` have real ids and are indexed with `_id` set explicitly, so re-running the importer overwrites existing docs. Child tables with no real id (`rental_property_localize`, `property_image_meta`, `price_history`, `skip_properties`) get ES-generated ids, so re-running creates new docs rather than updating existing ones — same documented gap as the Iceberg pipeline's un-populated auto `id` column.
+
+## Querying data
+
+List all indices and their doc counts:
+
+```bash
+docker compose exec elasticsearch curl "localhost:9200/_cat/indices?v"
+```
+
+Fetch sample documents from a table:
+
+```bash
+curl "localhost:9200/rental_property/_search?size=5"
+```
+
+Filter by country code:
+
+```bash
+curl -X GET "localhost:9200/rental_property/_search" -H "Content-Type: application/json" -d '{
+  "query": { "term": { "country_code": "de" } }
+}'
+```
+
+Count documents per country code:
+
+```bash
+curl -X GET "localhost:9200/rental_property/_search" -H "Content-Type: application/json" -d '{
+  "size": 0,
+  "aggs": { "by_country": { "terms": { "field": "country_code", "size": 50 } } }
+}'
+```
+
+Swap `rental_property` for any other index name to query that table instead.
+
+## Schema changes
+
+If `elasticsearch_etl/indices/mappings.py` changes (fields added/removed/retyped), existing indices do **not** auto-migrate — an already-created index keeps its old mapping, and indexing a document with a changed field type will throw a `mapper_parsing_exception`. Delete the index and re-run from scratch after any mapping change.
+
+## Troubleshooting: deleting indices
+
+`DELETE index_name_*` (wildcard delete) is blocked by default — Elasticsearch's `action.destructive_requires_name` setting is `true` out of the box and silently rejects wildcard deletes.
+
+Delete indices explicitly by name instead:
+
+```bash
+docker compose exec elasticsearch curl -X DELETE "localhost:9200/rental_property,rental_property_localize,property_image_meta,property_reviews,price_history,skip_properties"
+```
+
+Or, to allow wildcard deletes going forward (be careful — this is destructive with no undo):
+
+```bash
+docker compose exec elasticsearch curl -X PUT "localhost:9200/_cluster/settings" -H "Content-Type: application/json" -d '{"persistent": {"action.destructive_requires_name": false}}'
+```
+
+
+---
 
 ## Author
 

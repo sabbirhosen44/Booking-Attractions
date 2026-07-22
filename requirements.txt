@@ -11,3 +11,4 @@ pyspark==3.5.4
 jupyter
 pandas>=2.0
 pyarrow>=14.0
+elasticsearch==8.15.1

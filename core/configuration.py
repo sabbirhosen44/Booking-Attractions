@@ -21,3 +21,5 @@ DATABASE = CONFIG["database"]
 IMPORT = CONFIG["import"]
 
 ICEBERG = CONFIG["iceberg"]
+
+ELASTICSEARCH = CONFIG["elasticsearch"]
