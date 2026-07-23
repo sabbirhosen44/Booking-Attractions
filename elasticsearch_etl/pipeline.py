@@ -1,8 +1,8 @@
+from core.utils.json_reader import JsonReader
+from core.utils.location_mapping_reader import LocationMappingReader
 from elasticsearch_etl.client import ESClient
 from elasticsearch_etl.config import ESConfig
 from elasticsearch_etl.indices.index_manager import IndexManager
-from elasticsearch_etl.readers.json_reader import JsonReader
-from elasticsearch_etl.readers.location_mapping_reader import LocationMappingReader
 from elasticsearch_etl.services import ESIndexService
 from elasticsearch_etl.transforms.price_history import PriceHistoryTransform
 from elasticsearch_etl.transforms.property_reviews import PropertyReviewsTransform
@@ -82,7 +82,7 @@ class ElasticsearchDataImportRunner:
         if matched_batch:
             self.svc.bulk_index("property_reviews", matched_batch, id_field="id")
         if skip_batch:
-            self.svc.bulk_index("skip_properties", skip_batch)
+            self.svc.bulk_index("skip_properties", skip_batch, id_field="property_id")
 
     def _import_price_history(self):
         print("Processing search / price_history...")
@@ -90,7 +90,7 @@ class ElasticsearchDataImportRunner:
         matched_batch, skip_batch = [], []
 
         for record in JsonReader.iter_records(folder):
-            attraction_id = record.get("attraction") or record.get("attraction_id")
+            attraction_id = record.get("id")
             if attraction_id not in self.known_property_ids:
                 skip_batch.append(
                     PriceHistoryTransform.build_skip_doc(
@@ -107,4 +107,4 @@ class ElasticsearchDataImportRunner:
         if matched_batch:
             self.svc.bulk_index("price_history", matched_batch)
         if skip_batch:
-            self.svc.bulk_index("skip_properties", skip_batch)
+            self.svc.bulk_index("skip_properties", skip_batch, id_field="property_id")

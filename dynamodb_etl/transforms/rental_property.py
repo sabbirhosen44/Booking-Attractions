@@ -5,7 +5,7 @@ from core.utils.location_mapping_reader import LocationMappingReader
 from core.utils.slug_util import SlugUtil
 
 
-# Builds property, localize, and image docs from one attraction record
+# Builds property, localize, and image items from one attraction record
 class RentalPropertyTransform:
     def __init__(self, location_lookup: LocationMappingReader):
         self.location_lookup = location_lookup
@@ -26,7 +26,7 @@ class RentalPropertyTransform:
                 return loc
         return locations[0]
 
-    def build_property_doc(self, record: dict) -> dict:
+    def build_property_item(self, record: dict) -> dict:
         loc = self._pick_primary_location(record)
         country_code = (loc.get("country") or "xx").lower()
         city_code = loc.get("city")
@@ -78,16 +78,17 @@ class RentalPropertyTransform:
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    def build_localize_docs(self, record: dict, property_slug: str) -> list[dict]:
+    def build_localize_items(self, record: dict, property_slug: str) -> list[dict]:
         loc = self._pick_primary_location(record)
         country_code = (loc.get("country") or "xx").lower()
         name_map = record.get("name") or {}
         long_description = record.get("long_description") or {}
 
-        docs = []
+        items = []
         for language, name in name_map.items():
-            docs.append({
+            items.append({
                 "property_id": record["id"],
+                "language_country_code": f"{language}#{country_code}",
                 "feed": 111,
                 "language": self._truncate(language, 50),
                 "property_name": self._truncate(name, 450),
@@ -97,22 +98,22 @@ class RentalPropertyTransform:
                 "address": self._truncate(loc.get("address"), 500),
                 "country_code": country_code,
             })
-        return docs
+        return items
 
-    def build_image_docs(self, record: dict) -> list[dict]:
+    def build_image_items(self, record: dict) -> list[dict]:
         loc = self._pick_primary_location(record)
         country_code = (loc.get("country") or "xx").lower()
         photos = record.get("photos") or []
 
-        docs = []
+        items = []
         for photo in photos:
             url = photo.get("url")
             if not url:
                 continue
-            docs.append({
+            items.append({
                 "property_id": record["id"],
-                "feed": "111",
                 "url": url,
+                "feed": "111",
                 "country_code": country_code,
             })
-        return docs
+        return items

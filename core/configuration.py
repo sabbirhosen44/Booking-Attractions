@@ -23,3 +23,7 @@ IMPORT = CONFIG["import"]
 ICEBERG = CONFIG["iceberg"]
 
 ELASTICSEARCH = CONFIG["elasticsearch"]
+
+DYNAMODB = CONFIG["dynamodb"]
+
+

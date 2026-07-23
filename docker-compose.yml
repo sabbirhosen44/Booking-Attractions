@@ -15,7 +15,7 @@ services:
 
     ports:
       - "5432:5432"
-  
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
     container_name: booking-elasticsearch
@@ -27,6 +27,13 @@ services:
       - "9200:9200"
     volumes:
       - es_data:/usr/share/elasticsearch/data
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: booking-dynamodb
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
+    ports:
+      - "8001:8000"
 
   web:
     build:

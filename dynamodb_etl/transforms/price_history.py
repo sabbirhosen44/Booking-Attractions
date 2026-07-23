@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse, parse_qs
 
 
-# Builds price docs, dates come from url query params
+# Builds price items, dates come from url query params
 class PriceHistoryTransform:
     @staticmethod
     def _extract_dates(url: str) -> tuple:
@@ -14,7 +14,7 @@ class PriceHistoryTransform:
         return start, end
 
     @classmethod
-    def build_doc(cls, record: dict) -> dict:
+    def build_item(cls, record: dict) -> dict:
         urls = record.get("urls") or {}
         booking_url = (urls.get("web") or {}).get("detail") or urls.get("detail")
         start_date, end_date = cls._extract_dates(booking_url)
@@ -30,11 +30,11 @@ class PriceHistoryTransform:
         }
 
     @staticmethod
-    def build_skip_doc(record: dict, reason: str) -> dict:
+    def build_skip_item(record: dict, reason: str) -> dict:
         return {
             "property_id": record.get("id"),
             "feed": "111",
             "reason": reason,
             "updated_at": datetime.now(timezone.utc).isoformat(),
-            "updated_by": "import_attractions_elasticsearch",
+            "updated_by": "import_attractions_dynamodb",
         }

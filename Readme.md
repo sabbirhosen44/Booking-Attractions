@@ -1,10 +1,11 @@
 # Booking Attractions
 
-A data importer that processes Booking.com Attractions datasets and loads them into a database, using streaming/batch/parallel processing. The project contains **three parallel, independent pipelines** that do the same job into different storage backends, built so the team can compare them:
+A data importer that processes Booking.com Attractions datasets and loads them into a database, using streaming/batch/parallel processing. The project contains **four parallel, independent pipelines** that do the same job into different storage backends, built so the team can compare them:
 
 1. **Postgres pipeline** — Django ORM + `psqlextra`, writes into a partitioned PostgreSQL/PostGIS schema.
 2. **Iceberg pipeline** — PySpark, writes into local filesystem-backed Apache Iceberg tables via a Hadoop catalog.
 3. **Elasticsearch pipeline** — plain Python + `ijson`, writes into local Elasticsearch indices via Docker.
+4. **DynamoDB pipeline** — plain Python + `boto3`, writes into local DynamoDB tables via Docker.
 
 All three pipelines read the exact same source files under `data/` and populate the same logical entities (attractions, localized content, photos, reviews, review scores, price history, skipped/unmatched records) — just into different targets.
 
@@ -16,6 +17,7 @@ All three pipelines read the exact same source files under `data/` and populate 
 * PostgreSQL 16 + PostGIS 3.4
 * PySpark 3.5.4 + Apache Iceberg (Spark runtime jar 1.6.1, Scala 2.12)
 * Elasticsearch 8.x
+* DynamoDB (via amazon/dynamodb-local) + boto3
 * Docker & Docker Compose
 * ijson
 
@@ -30,7 +32,8 @@ booking_attraction/
 │       │   └── commands/
 │       │       ├── import_attractions.py
 │       │       ├── import_attractions_iceberg.py
-│       │       └── import_attractions_elasticsearch.py
+│       │       ├── import_attractions_elasticsearch.py
+│       │       └── import_attractions_dynamodb.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
@@ -71,6 +74,21 @@ booking_attraction/
 │   │   └── location_mapping_reader.py
 │   └── transforms/
 │       ├── slug.py
+│       ├── rental_property.py
+│       ├── property_reviews.py
+│       └── price_history.py
+│
+├── dynamodb_etl/
+│   ├── config.py
+│   ├── client.py
+│   ├── services.py
+│   ├── pipeline.py
+│   ├── tables/
+│   │   ├── schemas.py
+│   │   ├── table_manager.py
+│   │   ├── schema_fields.py
+│   │   └── schema_aligner.py
+│   └── transforms/
 │       ├── rental_property.py
 │       ├── property_reviews.py
 │       └── price_history.py
@@ -145,7 +163,7 @@ data/
             └── region.json
 ```
 
-This same folder feeds all three pipelines.
+This same folder feeds all four pipelines.
 
 
 ---
@@ -351,6 +369,98 @@ Or, to allow wildcard deletes going forward (be careful — this is destructive 
 ```bash
 docker compose exec elasticsearch curl -X PUT "localhost:9200/_cluster/settings" -H "Content-Type: application/json" -d '{"persistent": {"action.destructive_requires_name": false}}'
 ```
+
+## Screenshots
+
+Sample query output from each index. Images stored in `static/elasticsearch/`.
+
+| Table | Preview |
+|---|---|
+| Indices overview | ![indices_overview](static/elasticsearch/indices_overview.png) |
+| `rental_property` | ![rental_property](static/elasticsearch/rental_property.png) |
+| `rental_property_localize` | ![rental_property_localize](static/elasticsearch/rental_property_localize.png) |
+| `property_image_meta` | ![property_image_meta](static/elasticsearch/property_image_meta.png) |
+| `property_reviews` | ![property_reviews](static/elasticsearch/property_reviews.png) |
+| `price_history` | ![price_history](static/elasticsearch/price_history.png) |
+| `skip_properties` | ![skip_properties](static/elasticsearch/skip_properties.png) |
+
+
+---
+
+# DynamoDB Pipeline
+
+Runs entirely on local Docker via `amazon/dynamodb-local` — no AWS account or cloud credentials involved.
+
+## Run
+
+```bash
+docker compose exec web python manage.py import_attractions_dynamodb
+```
+
+Tables are created automatically on first run. Since DynamoDB requires an explicit partition key (and sometimes a sort key) per table, unlike Elasticsearch, the key design is:
+
+| Table | Partition key | Sort key |
+|---|---|---|
+| `rental_property` | `id` | — |
+| `rental_property_localize` | `property_id` | `language_country_code` |
+| `property_image_meta` | `property_id` | `url` |
+| `property_reviews` | `id` | — |
+| `price_history` | `property_id` | `created_at` |
+| `skip_properties` | `property_id` | — |
+
+Every item is padded to the full field set of its corresponding Django model before writing (missing fields stored as `NULL`), same rule as the Iceberg and Elasticsearch pipelines. Tables with a real id (`rental_property`, `property_reviews`) or a `unique=True` field (`skip_properties`) overwrite on re-run; the rest accumulate new items per unique key combination.
+
+## Querying data
+
+Check table item counts:
+
+```bash
+docker compose exec web python manage.py shell -c "
+from dynamodb_etl.client import DynamoClient
+for t in DynamoClient.get().tables.all():
+    t.reload()
+    print(t.name, '-> item_count:', t.item_count)
+"
+```
+
+Fetch a sample item from a table:
+
+```bash
+docker compose exec web python manage.py shell -c "
+import json
+from dynamodb_etl.client import DynamoClient
+items = DynamoClient.get().Table('rental_property').scan(Limit=1)['Items']
+print(json.dumps(items, indent=2, default=str))
+"
+```
+
+Swap `'rental_property'` for any other table name to check that one instead.
+
+## Schema changes
+
+If `dynamodb_etl/tables/schemas.py` or `schema_fields.py` changes, existing tables do **not** auto-migrate — DynamoDB has no schema to migrate for non-key attributes, but a key schema change requires deleting and recreating the table. Delete the affected table and re-run:
+
+```bash
+docker compose exec web python -c "
+from dynamodb_etl.client import DynamoClient
+DynamoClient.get().Table('TABLE_NAME_HERE').delete()
+"
+docker compose exec web python manage.py import_attractions_dynamodb
+```
+
+## Screenshots
+
+Sample query output from each table. Images stored in `static/dynamodb/`.
+
+| Table | Preview |
+|---|---|
+| Tables overview | ![tables_overview](static/dynamodb/tables_overview.png) |
+| `rental_property` | ![rental_property](static/dynamodb/rental_property.png) |
+| `rental_property_localize` | ![rental_property_localize](static/dynamodb/rental_property_localize.png) |
+| `property_image_meta` | ![property_image_meta](static/dynamodb/property_image_meta.png) |
+| `property_reviews` | ![property_reviews](static/dynamodb/property_reviews.png) |
+| `price_history` | ![price_history](static/dynamodb/price_history.png) |
+| `skip_properties` | ![skip_properties](static/dynamodb/skip_properties.png) |
 
 
 ---

@@ -30,3 +30,7 @@ database = "attractions"
 host = "http://elasticsearch:9200"
 index_prefix = "booking_attraction"
 batch_size = 500
+
+[dynamodb]
+endpoint_url = "http://dynamodb-local:8000"
+region = "us-east-1"
