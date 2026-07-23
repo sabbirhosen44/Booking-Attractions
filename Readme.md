@@ -397,19 +397,6 @@ Runs entirely on local Docker via `amazon/dynamodb-local` — no AWS account or 
 docker compose exec web python manage.py import_attractions_dynamodb
 ```
 
-Tables are created automatically on first run. Since DynamoDB requires an explicit partition key (and sometimes a sort key) per table, unlike Elasticsearch, the key design is:
-
-| Table | Partition key | Sort key |
-|---|---|---|
-| `rental_property` | `id` | — |
-| `rental_property_localize` | `property_id` | `language_country_code` |
-| `property_image_meta` | `property_id` | `url` |
-| `property_reviews` | `id` | — |
-| `price_history` | `property_id` | `created_at` |
-| `skip_properties` | `property_id` | — |
-
-Every item is padded to the full field set of its corresponding Django model before writing (missing fields stored as `NULL`), same rule as the Iceberg and Elasticsearch pipelines. Tables with a real id (`rental_property`, `property_reviews`) or a `unique=True` field (`skip_properties`) overwrite on re-run; the rest accumulate new items per unique key combination.
-
 ## Querying data
 
 Check table item counts:
