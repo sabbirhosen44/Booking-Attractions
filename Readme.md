@@ -1,13 +1,14 @@
 # Booking Attractions
 
-A data importer that processes Booking.com Attractions datasets and loads them into a database, using streaming/batch/parallel processing. The project contains **four parallel, independent pipelines** that do the same job into different storage backends, built so the team can compare them:
+A data importer that processes Booking.com Attractions datasets and loads them into a database, using streaming/batch/parallel processing. The project contains **five parallel, independent pipelines** that do the same job into different storage backends, built so the team can compare them:
 
 1. **Postgres pipeline** — Django ORM + `psqlextra`, writes into a partitioned PostgreSQL/PostGIS schema.
 2. **Iceberg pipeline** — PySpark, writes into local filesystem-backed Apache Iceberg tables via a Hadoop catalog.
 3. **Elasticsearch pipeline** — plain Python + `ijson`, writes into local Elasticsearch indices via Docker.
 4. **DynamoDB pipeline** — plain Python + `boto3`, writes into local DynamoDB tables via Docker.
+5. **Vector DB pipeline** — plain Python + `sentence-transformers`, embeds and writes `rental_property` only into a local Qdrant collection via Docker, with similarity search.
 
-All three pipelines read the exact same source files under `data/` and populate the same logical entities (attractions, localized content, photos, reviews, review scores, price history, skipped/unmatched records) — just into different targets.
+All five pipelines read the exact same source files under `data/` and populate the same logical entities (attractions, localized content, photos, reviews, review scores, price history, skipped/unmatched records) — just into different targets. The Vector DB pipeline is the one exception: it only handles `rental_property`, by design.
 
 
 ## Tech Stack
@@ -18,6 +19,7 @@ All three pipelines read the exact same source files under `data/` and populate 
 * PySpark 3.5.4 + Apache Iceberg (Spark runtime jar 1.6.1, Scala 2.12)
 * Elasticsearch 8.x
 * DynamoDB (via amazon/dynamodb-local) + boto3
+* Qdrant (vector database) + sentence-transformers
 * Docker & Docker Compose
 * ijson
 
@@ -33,7 +35,9 @@ booking_attraction/
 │       │       ├── import_attractions.py
 │       │       ├── import_attractions_iceberg.py
 │       │       ├── import_attractions_elasticsearch.py
-│       │       └── import_attractions_dynamodb.py
+│       │       ├── import_attractions_dynamodb.py
+│       │       ├── import_attractions_vector.py
+│       │       └── search_similar_attractions.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
@@ -43,6 +47,10 @@ booking_attraction/
 │
 ├── core/
 │   ├── utils/
+│   │   ├── json_reader.py            # shared: streaming JSON reader (ijson)
+│   │   ├── location_mapping_reader.py # shared: resolves location codes to names
+│   │   ├── slug_util.py               # shared: slugify helper
+│   │   └── ...                        # Postgres-pipeline-only utils
 │   ├── app_config.toml.example
 │   ├── configuration.py
 │   ├── settings.py
@@ -92,6 +100,20 @@ booking_attraction/
 │       ├── rental_property.py
 │       ├── property_reviews.py
 │       └── price_history.py
+│
+├── vector_etl/
+│   ├── config.py
+│   ├── client.py
+│   ├── embedder.py
+│   ├── collection_manager.py
+│   ├── text_builder.py
+│   ├── point_id.py
+│   ├── pipeline.py
+│   ├── search.py
+│   ├── schema_fields.py
+│   ├── schema_aligner.py
+│   └── transforms/
+│       └── rental_property.py
 │
 ├── data/
 │   ├── attraction_details/
@@ -163,7 +185,7 @@ data/
             └── region.json
 ```
 
-This same folder feeds all four pipelines.
+This same folder feeds all five pipelines.
 
 
 ---
@@ -397,6 +419,19 @@ Runs entirely on local Docker via `amazon/dynamodb-local` — no AWS account or 
 docker compose exec web python manage.py import_attractions_dynamodb
 ```
 
+Tables are created automatically on first run. Since DynamoDB requires an explicit partition key (and sometimes a sort key) per table, unlike Elasticsearch, the key design is:
+
+| Table | Partition key | Sort key |
+|---|---|---|
+| `rental_property` | `id` | — |
+| `rental_property_localize` | `property_id` | `language_country_code` |
+| `property_image_meta` | `property_id` | `url` |
+| `property_reviews` | `id` | — |
+| `price_history` | `property_id` | `created_at` |
+| `skip_properties` | `property_id` | — |
+
+Every item is padded to the full field set of its corresponding Django model before writing (missing fields stored as `NULL`), same rule as the Iceberg and Elasticsearch pipelines. Tables with a real id (`rental_property`, `property_reviews`) or a `unique=True` field (`skip_properties`) overwrite on re-run; the rest accumulate new items per unique key combination.
+
 ## Querying data
 
 Check table item counts:
@@ -448,6 +483,85 @@ Sample query output from each table. Images stored in `static/dynamodb/`.
 | `property_reviews` | ![property_reviews](static/dynamodb/property_reviews.png) |
 | `price_history` | ![price_history](static/dynamodb/price_history.png) |
 | `skip_properties` | ![skip_properties](static/dynamodb/skip_properties.png) |
+
+
+---
+
+# Vector DB Pipeline
+
+Runs entirely on local Docker via Qdrant — no AWS account or cloud credentials involved. Unlike the other four pipelines, this one **only handles `rental_property`**, reading only from `data/attraction_details/`, by design — no reviews, images, prices, or skip records.
+
+Each attraction is turned into a 384-dimension embedding (`sentence-transformers`, model `all-MiniLM-L6-v2`) built from its name, city/country, categories, and address, stored alongside a payload padded to the full 119 `rental_property` fields — same column-parity rule as the other pipelines.
+
+## Run
+
+```bash
+docker compose exec web python manage.py import_attractions_vector
+```
+
+First run downloads the embedding model (~90MB), cached in the container afterward.
+
+## Search
+
+Find attractions similar to free text:
+
+```bash
+docker compose exec web python manage.py search_similar_attractions --query "sunset river cruise"
+```
+
+Find attractions similar to an existing property:
+
+```bash
+docker compose exec web python manage.py search_similar_attractions --property-id PRxxxxxxxxxx --top-k 5
+```
+
+## Inspecting data
+
+Qdrant's web dashboard (visual, easiest):
+
+```
+http://localhost:6333/dashboard
+```
+
+Collection overview via curl:
+
+```bash
+curl "http://localhost:6333/collections/rental_property"
+```
+
+Fetch sample points with payload:
+
+```bash
+docker compose exec web python manage.py shell -c "
+from vector_etl.client import VectorClient
+points, _ = VectorClient.get().scroll(collection_name='rental_property', limit=1, with_vectors=False)
+p = points[0]
+print('city:', p.payload.get('city'))
+print('field count:', len(p.payload))
+"
+```
+
+## Schema changes
+
+If `vector_etl/schema_fields.py` changes, existing points keep their old payload shape until re-imported — Qdrant has no schema to migrate, but a full re-embed is needed to pick up new fields. Delete the collection and re-run:
+
+```bash
+docker compose exec web python -c "
+from vector_etl.client import VectorClient
+VectorClient.get().delete_collection('rental_property')
+"
+docker compose exec web python manage.py import_attractions_vector
+```
+
+## Screenshots
+
+Sample query output. Images stored in `static/vector/`.
+
+| Query | Preview |
+|---|---|
+| Similarity search results | ![search_results](static/vector/search_results.png) |
+| Sample point payload | ![sample_point](static/vector/sample_point.png) |
+| Qdrant dashboard | ![dashboard](static/vector/dashboard.png) |
 
 
 ---
