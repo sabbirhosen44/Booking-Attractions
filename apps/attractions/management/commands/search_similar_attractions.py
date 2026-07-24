@@ -23,4 +23,4 @@ class Command(BaseCommand):
             return
 
         for r in results:
-            self.stdout.write(f"{r['score']:.4f}  {r['property_id']}  {r['property_name']}  ({r['city']}, {r['country_code']})")
+            self.stdout.write(f"{r['score']:.4f}  {r['id']}  {r['property_name']}  ({r['city']}, {r['country_code']})")

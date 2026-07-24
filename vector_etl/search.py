@@ -34,10 +34,10 @@ class SimilaritySearch:
         results = client.query_points(
             collection_name=VectorConfig.COLLECTION_NAME,
             query=existing[0].vector,
-            limit=top_k + 1,
+            limit=top_k + 1,  # +1 because the property matches itself first
         )
         return [
             {"score": r.score, **r.payload}
             for r in results.points
-            if r.payload.get("property_id") != property_id
+            if r.payload.get("id") != property_id
         ][:top_k]

@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 from typing import Optional
 
 from core.utils.location_mapping_reader import LocationMappingReader
 from core.utils.slug_util import SlugUtil
+from vector_etl.schema_aligner import SchemaAligner
 
 
 def _truncate(value: Optional[str], length: int) -> Optional[str]:
@@ -20,7 +22,7 @@ def _pick_primary_location(record: dict) -> dict:
     return locations[0]
 
 
-# Builds the metadata payload stored next to each vector in Qdrant
+# Builds the full 119-field rental_property payload stored next to each vector
 class RentalPropertyPayloadBuilder:
     def __init__(self, location_lookup: LocationMappingReader):
         self.location_lookup = location_lookup
@@ -35,18 +37,46 @@ class RentalPropertyPayloadBuilder:
         property_name = name_map.get("en-us") or (next(iter(name_map.values()), None)) or record["id"]
 
         photos = record.get("photos") or []
-        feature_image = photos[0].get("url") if photos else None
+        photo_urls = [p.get("url") for p in photos if p.get("url")]
+
+        lat = (loc.get("coordinates") or {}).get("latitude")
+        lon = (loc.get("coordinates") or {}).get("longitude")
+        geo_point = {"lat": lat, "lon": lon} if lat is not None and lon is not None else None
 
         ratings = record.get("ratings") or {}
+        urls = record.get("urls") or {}
+        supported_languages = record.get("supported_languages") or []
 
-        return {
-            "property_id": record["id"],
+        payload = {
+            "id": record["id"],
+            "booking_id": _truncate(record["id"], 100),
+            "feed": 111,
             "property_name": _truncate(property_name, 450),
             "property_slug": SlugUtil.slugify(property_name),
-            "city": _truncate(city_name, 250),
-            "country_code": country_code,
-            "categories": record.get("categories") or [],
+            "property_type": "attraction",
+            "activity_categories": record.get("categories") or [],
+            "property_attributes": record.get("badges") or [],
             "review_score_general": ratings.get("score"),
-            "feature_image": feature_image,
+            "review_score": ratings.get("score"),
+            "number_of_review": ratings.get("number_of_reviews"),
+            "languages": supported_languages,
+            "supported_languages": _truncate(",".join(supported_languages), 250),
+            "images": photo_urls[:15],
+            "uploaded_image_count": len(photo_urls),
+            "feed_provider_url": _truncate((urls.get("web") or {}).get("detail"), 600),
+            "partners_url": {
+                "web": (urls.get("web") or {}).get("detail"),
+                "app": (urls.get("app") or {}).get("detail"),
+            },
             "display": _truncate(loc.get("address"), 500),
+            "zip_code": _truncate(loc.get("post_code"), 50),
+            "country_code": country_code,
+            "city": _truncate(city_name, 250),
+            "location_id": _truncate(str(city_code) if city_code is not None else None, 500),
+            "latlon": geo_point,
+            "geography_latlon": geo_point,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
+
+        return SchemaAligner.align(payload)

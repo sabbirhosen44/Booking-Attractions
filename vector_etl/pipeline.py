@@ -47,7 +47,7 @@ class VectorImportRunner:
     def _flush(self, payloads: list, texts: list):
         vectors = Embedder.encode_batch(texts)
         points = [
-            PointStruct(id=PointId.for_property(p["property_id"]), vector=v, payload=p)
+            PointStruct(id=PointId.for_property(p["id"]), vector=v, payload=p)
             for p, v in zip(payloads, vectors)
         ]
         self.client.upsert(collection_name=VectorConfig.COLLECTION_NAME, points=points)
