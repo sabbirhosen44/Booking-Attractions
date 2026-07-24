@@ -34,3 +34,10 @@ batch_size = 500
 [dynamodb]
 endpoint_url = "http://dynamodb-local:8000"
 region = "us-east-1"
+
+[vector_db]
+host = "qdrant"
+port = 6333
+collection_name = "rental_property"
+embedding_model = "all-MiniLM-L6-v2"
+batch_size = 100

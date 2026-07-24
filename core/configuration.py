@@ -26,4 +26,4 @@ ELASTICSEARCH = CONFIG["elasticsearch"]
 
 DYNAMODB = CONFIG["dynamodb"]
 
-
+VECTOR_DB = CONFIG["vector_db"]

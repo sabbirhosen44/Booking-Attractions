@@ -13,3 +13,5 @@ pandas>=2.0
 pyarrow>=14.0
 elasticsearch==8.15.1
 boto3>=1.34
+qdrant-client>=1.9
+sentence-transformers>=3.0
