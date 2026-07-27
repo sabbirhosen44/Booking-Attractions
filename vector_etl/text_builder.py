@@ -15,3 +15,19 @@ class TextBuilder:
             address,
         ]
         return ". ".join(p for p in parts if p)
+    
+    @staticmethod
+    def build_from_row(row: dict) -> str:
+        property_name = row.get("property_name") or row.get("id")
+        city_name = row.get("city")
+        country_code = row.get("country_code")
+        categories = row.get("activity_categories") or []
+        address = row.get("display") or ""
+
+        parts = [
+            property_name,
+            f"located in {city_name}, {country_code}" if city_name else "",
+            f"categories: {', '.join(categories)}" if categories else "",
+            address,
+        ]
+        return ". ".join(p for p in parts if p)
