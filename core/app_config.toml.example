@@ -41,3 +41,7 @@ port = 6333
 collection_name = "rental_property"
 embedding_model = "all-MiniLM-L6-v2"
 batch_size = 100
+
+[duplicate_detection]
+similarity_threshold = 0.95
+qdrant_collection = "rental_property"
