@@ -4,7 +4,7 @@ from vector_etl.sync import VectorSyncRunner
 
 
 class Command(BaseCommand):
-    help = "Embeds and syncs only new RentalProperty rows from Postgres into Qdrant."
+    help = "Syncs rental_property from Postgres into Qdrant - adds new rows, removes deleted ones."
 
     def handle(self, *args, **options):
         VectorSyncRunner().run()

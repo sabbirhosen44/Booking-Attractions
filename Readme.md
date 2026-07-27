@@ -37,7 +37,8 @@ booking_attraction/
 │       │       ├── import_attractions_elasticsearch.py
 │       │       ├── import_attractions_dynamodb.py
 │       │       ├── import_attractions_vector.py
-│       │       └── search_similar_attractions.py
+│       │       ├── search_similar_attractions.py
+│       │       └── sync_vector_from_postgres.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
@@ -110,6 +111,9 @@ booking_attraction/
 │   ├── point_id.py
 │   ├── pipeline.py
 │   ├── search.py
+│   ├── sync.py
+│   ├── postgres_reader.py
+│   ├── payload_sanitizer.py
 │   ├── schema_fields.py
 │   ├── schema_aligner.py
 │   └── transforms/
@@ -500,6 +504,21 @@ docker compose exec web python manage.py import_attractions_vector
 ```
 
 First run downloads the embedding model (~90MB), cached in the container afterward.
+
+## Sync from Postgres
+
+Separate from the `data/` import above — this reads directly from the Postgres `rental_property` table (no JSON files involved) and keeps Qdrant in sync as new properties are added there day to day.
+
+```bash
+docker compose exec web python manage.py sync_vector_from_postgres
+```
+
+Each run:
+- Reads `rental_property` rows from Postgres in batches
+- Checks each batch against Qdrant by id (existence check only, no full scan) and embeds+upserts only rows **not already present**
+- Removes any Qdrant point whose id no longer exists in Postgres, keeping the two in sync both ways
+
+Safe to run repeatedly or on a daily schedule (e.g. cron) — rows already synced are skipped, so nothing gets re-embedded unnecessarily.
 
 ## Search
 
