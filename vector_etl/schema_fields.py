@@ -1,7 +1,4 @@
-# Full field list for rental_property, mirrors apps/attractions/models.py
-# exactly - same list as dynamodb_etl/tables/schema_fields.py's entry
-# for this table. No property_description here - that field only exists
-# on RentalPropertyLocalize, a different table this pipeline never touches.
+
 
 RENTAL_PROPERTY_FIELDS = [
     "id", "amenities", "themes", "amenity_categories", "activities",
