@@ -585,6 +585,58 @@ Sample query output. Images stored in `static/vector/`.
 
 ---
 
+# Property Duplicate Detection
+ 
+Standalone module, separate from all five pipelines above and not wired into `sync_vector_from_postgres`. Finds `rental_property` rows that are >=95% similar (configurable) via the existing Qdrant vector index — i.e. likely the same real-world property under different `id`s — and stores every matched pair in its own table, `property_duplicate_groups`.
+ 
+Requires the Vector DB pipeline to have been run at least once first (`import_attractions_vector`), since this only reads from the Qdrant collection it populates.
+ 
+## Run
+ 
+```bash
+docker compose exec web python manage.py detect_duplicate_properties
+```
+ 
+Each run fully replaces the table (deletes all rows, re-detects, re-writes) — this is a backfill/recompute, not an incremental sync.
+ 
+## Querying data
+ 
+Find all duplicates of one property:
+ 
+```bash
+docker compose exec web python manage.py shell -c "
+from duplicate_detection.models import PropertyDuplicateGroup
+for row in PropertyDuplicateGroup.objects.filter(property_id='PRxxxxxxxxxx'):
+    print(row.duplicate_id, row.score)
+"
+```
+ 
+Count total duplicate pairs found:
+ 
+```bash
+docker compose exec web python manage.py shell -c "
+from duplicate_detection.models import PropertyDuplicateGroup
+print(PropertyDuplicateGroup.objects.count())
+"
+```
+ 
+Inspect the raw table via psql:
+ 
+```bash
+docker compose exec db psql -U postgres -d booking_attraction -c "SELECT * FROM property_duplicate_groups LIMIT 20;"
+```
+ 
+## Screenshots
+ 
+Sample query output. Images stored in `static/duplicate_detection/`.
+ 
+| Query | Preview |
+|---|---|
+| `property_duplicate_groups` table overview | ![table_overview](static/duplicate_detection/table_overview.png) |
+ 
+ 
+---
+
 ## Author
 
 Author: Md Sabbir Hosen

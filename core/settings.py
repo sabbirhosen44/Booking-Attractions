@@ -19,7 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.gis",
     "django.contrib.postgres",
     "apps.attractions",
-    "property_dedup",
+    "duplicate_detection",
 ]
 
 MIDDLEWARE = []

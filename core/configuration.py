@@ -27,3 +27,5 @@ ELASTICSEARCH = CONFIG["elasticsearch"]
 DYNAMODB = CONFIG["dynamodb"]
 
 VECTOR_DB = CONFIG["vector_db"]
+
+DUPLICATE_DETECTION = CONFIG["duplicate_detection"]

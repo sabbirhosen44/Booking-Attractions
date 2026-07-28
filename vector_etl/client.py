@@ -10,5 +10,9 @@ class VectorClient:
     @classmethod
     def get(cls) -> QdrantClient:
         if cls._instance is None:
-            cls._instance = QdrantClient(host=VectorConfig.HOST, port=VectorConfig.PORT)
+            cls._instance = QdrantClient(
+                host=VectorConfig.HOST,
+                port=VectorConfig.PORT,
+                timeout=120,
+            )
         return cls._instance
