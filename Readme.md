@@ -119,6 +119,18 @@ booking_attraction/
 │   └── transforms/
 │       └── rental_property.py
 │
+├── duplicate_detection/
+│   ├── config.py
+│   ├── models.py
+│   ├── union_find.py
+│   ├── vector_source.py
+│   ├── grouping_service.py
+│   ├── writer.py
+│   ├── pipeline.py
+│   ├── migrations/
+│   └── management/
+│       └── commands/
+│           └── detect_duplicate_properties.py
 ├── data/
 │   ├── attraction_details/
 │   ├── reviews/
