@@ -131,6 +131,19 @@ booking_attraction/
 │   └── management/
 │       └── commands/
 │           └── detect_duplicate_properties.py
+│
+├── sitemap_generator/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── url_builder.py
+│   ├── xml_writer.py
+│   ├── sitemap_index_writer.py
+│   ├── pipeline.py
+│   ├── sitemap/                 # generated sitemap.xml / sitemap-N.xml + sitemap-index.xml output lives here
+│   └── management/
+│       └── commands/
+│           └── generate_sitemap.py
+│
 ├── data/
 │   ├── attraction_details/
 │   ├── reviews/
