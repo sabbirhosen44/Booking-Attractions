@@ -663,6 +663,105 @@ Sample query output. Images stored in `static/duplicate_detection/`.
  
 ---
 
+# Sitemap Generation
+
+The sitemap generator creates the following sitemap files:
+
+```
+property-sitemap.xml.gz
+nearby-property-sitemap.xml.gz
+site-map-all.xml.gz
+```
+
+The generated files are stored in:
+
+```
+sitemap_generator/sitemap_output/
+```
+
+---
+
+## Step 1. Delete the previous sitemap output
+
+Before generating a new sitemap, remove the old output directory.
+
+```bash
+docker compose exec web rm -rf /app/sitemap_generator/sitemap_output
+```
+
+---
+
+## Step 2. Generate the sitemaps
+
+Run the sitemap generation command.
+
+```bash
+docker compose exec web python manage.py generate_sitemap
+```
+
+This command generates:
+
+- `property-sitemap.xml.gz`
+- `nearby-property-sitemap.xml.gz`
+- `site-map-all.xml.gz`
+
+---
+
+## Step 3. Verify the generated files
+
+Check that all sitemap files were generated successfully.
+
+```bash
+docker compose exec web ls -lah /app/sitemap_generator/sitemap_output
+```
+
+Expected output:
+
+```
+property-sitemap.xml.gz
+nearby-property-sitemap.xml.gz
+site-map-all.xml.gz
+```
+
+---
+
+## Step 4. Generate formatted XML files (optional)
+
+The sitemap generator writes compressed `.xml.gz` files.
+
+If you want readable XML files for debugging or inspection, run:
+
+```bash
+docker compose exec web sh -c "python -c '
+import gzip
+from pathlib import Path
+from xml.dom import minidom
+
+out_dir = Path(\"/app/sitemap_generator/sitemap_output\")
+
+for gz_file in out_dir.glob(\"*.xml.gz\"):
+    with gzip.open(gz_file, \"rt\", encoding=\"utf-8\") as f:
+        doc = minidom.parse(f)
+
+    xml_file = gz_file.with_suffix(\"\")  # removes only .gz -> .xml
+
+    with open(xml_file, \"w\", encoding=\"utf-8\") as f:
+        f.write(doc.toprettyxml(indent=\"    \"))
+
+print(\"Formatted\", len(list(out_dir.glob(\"*.xml\"))), \"XML files.\")
+'"
+```
+
+This command creates the following readable XML files alongside the compressed versions:
+
+```
+property-sitemap.xml
+nearby-property-sitemap.xml
+site-map-all.xml
+```
+
+---
+
 ## Author
 
 Author: Md Sabbir Hosen

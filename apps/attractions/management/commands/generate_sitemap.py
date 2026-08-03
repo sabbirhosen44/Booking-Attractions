@@ -4,7 +4,7 @@ from sitemap_generator.pipeline import SitemapGenerationRunner
 
 
 class Command(BaseCommand):
-    help = "Generates sitemap XML files from rental_property, mirrors rentbyowner's structure."
+    help = "Generate sitemap"
 
     def handle(self, *args, **options):
         SitemapGenerationRunner().run()

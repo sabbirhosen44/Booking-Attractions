@@ -49,6 +49,4 @@ query_batch_size = 50
 [sitemap]
 site_url = "https://www.rentbyowner.com"
 output_dir = "sitemap_output"
-images_per_property = 5
-urls_per_file = 50000
 gzip_output = true
