@@ -39,7 +39,7 @@ booking_attraction/
 │       │       ├── import_attractions_vector.py
 │       │       ├── search_similar_attractions.py
 │       │       └── sync_vector_from_postgres.py
-│       │       └── sync_vector_from_postgres.py
+│       │       └── generate_sitemap.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
