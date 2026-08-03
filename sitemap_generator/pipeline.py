@@ -1,4 +1,4 @@
-from sitemap_generator.city_sitemap_builder import CitySitemapBuilder
+
 from sitemap_generator.config import SitemapConfig
 from sitemap_generator.postgres_reader import SitemapPostgresReader
 from sitemap_generator.property_sitemap_builder import PropertySitemapBuilder
@@ -11,7 +11,6 @@ class SitemapGenerationRunner:
     def run(self):
         filenames = []
         filenames.extend(self._write_property_sitemaps())
-        filenames.append(self._write_city_sitemap())
         self._write_index(filenames)
 
         print(f"Generated {len(filenames)} sitemap files in {SitemapConfig.OUTPUT_DIR}")
@@ -42,15 +41,6 @@ class SitemapGenerationRunner:
         print(f"Wrote {filename} ({len(rows)} urls)")
         return filename
 
-    @staticmethod
-    def _write_city_sitemap() -> str:
-        print("Building city sitemap...")
-        groups = SitemapPostgresReader.city_groups()
-        xml_content = CitySitemapBuilder.build_urlset(groups)
-        filename = "city-sitemap"
-        SitemapWriter.write(filename, xml_content)
-        print(f"Wrote {filename} ({len(groups)} cities)")
-        return filename
 
     @staticmethod
     def _write_index(filenames: list):

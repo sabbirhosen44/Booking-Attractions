@@ -39,6 +39,7 @@ booking_attraction/
 │       │       ├── import_attractions_vector.py
 │       │       ├── search_similar_attractions.py
 │       │       └── sync_vector_from_postgres.py
+│       │       └── sync_vector_from_postgres.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
@@ -136,13 +137,13 @@ booking_attraction/
 │   ├── __init__.py
 │   ├── config.py
 │   ├── url_builder.py
-│   ├── xml_writer.py
+│   ├── writer.py
 │   ├── sitemap_index_writer.py
 │   ├── pipeline.py
-│   ├── sitemap/                 # generated sitemap.xml / sitemap-N.xml + sitemap-index.xml output lives here
-│   └── management/
-│       └── commands/
-│           └── generate_sitemap.py
+│   ├── postgres_reader.py
+│   ├── property_sitemap_builder.py
+│   ├── sitemap_index_builder.py
+│   ├── sitemap_output/  
 │
 ├── data/
 │   ├── attraction_details/
