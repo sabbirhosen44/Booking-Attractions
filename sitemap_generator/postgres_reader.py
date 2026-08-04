@@ -1,4 +1,5 @@
-from django.contrib.gis.measure import D
+from django.db import connection
+
 
 from apps.attractions.models import RentalProperty
 
@@ -31,55 +32,38 @@ class SitemapPostgresReader:
 
     @staticmethod
     def iter_nearby_property_batches(batch_size: int):
-        seen = set()
-        batch = []
-
-        queryset = (
-            RentalProperty.objects
-            .exclude(geography_latlon__isnull=True)
-            .values(
-                "id",
-                "property_slug",
-                "images",
-                "updated_at",
-                "geography_latlon",
-            )
-            .order_by("id")
-            .iterator(chunk_size=batch_size)
-        )
-
-        for property_row in queryset:
-            nearby_queryset = (
-                RentalProperty.objects
-                .exclude(id=property_row["id"])
-                .exclude(geography_latlon__isnull=True)
-                .filter(
-                    geography_latlon__distance_lte=(
-                        property_row["geography_latlon"],
-                        D(km=5),
-                    )
+        sql = """
+            SELECT DISTINCT
+                p2.id,
+                p2.property_slug,
+                p2.images,
+                p2.updated_at
+            FROM attractions_rentalproperty p1
+            JOIN attractions_rentalproperty p2
+                ON ST_DWithin(
+                    p1.geography_latlon,
+                    p2.geography_latlon,
+                    5000
                 )
-                .values(
-                    "id",
-                    "property_slug",
-                    "images",
-                    "updated_at",
-                )
-            )
+            WHERE
+                p1.id <> p2.id
+                AND p1.geography_latlon IS NOT NULL
+                AND p2.geography_latlon IS NOT NULL
+            ORDER BY p2.id;
+        """
 
-            for nearby in nearby_queryset:
-                property_id = nearby["id"]
+        with connection.cursor() as cursor:
+            cursor.execute(sql)
 
-                if property_id in seen:
-                    continue
+            columns = [col[0] for col in cursor.description]
 
-                seen.add(property_id)
+            while True:
+                rows = cursor.fetchmany(batch_size)
 
-                batch.append(nearby)
+                if not rows:
+                    break
 
-                if len(batch) >= batch_size:
-                    yield batch
-                    batch = []
-
-        if batch:
-            yield batch
+                yield [
+                    dict(zip(columns, row))
+                    for row in rows
+                ]
