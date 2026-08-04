@@ -8,27 +8,17 @@ NAMESPACES = (
     'xmlns:xhtml="http://www.w3.org/1999/xhtml"'
 )
 
+
 # Builds XML sitemap for property rows
 class PropertySitemapBuilder:
     @staticmethod
     def build_url_block(row: dict) -> str:
-        loc = escape(
-            UrlBuilder.property_url(
-                row["id"],
-                row["property_slug"],
-            )
-        )
-
+        loc = escape(UrlBuilder.property_url(row["id"], row["property_slug"]))
         lastmod = row["updated_at"].isoformat()
-
         images = row.get("images") or []
 
         image_blocks = "".join(
-            (
-                "<image:image>"
-                f"<image:loc>{escape(image)}</image:loc>"
-                "</image:image>"
-            )
+            f"<image:image><image:loc>{escape(image)}</image:loc></image:image>"
             for image in images
         )
 
@@ -41,16 +31,14 @@ class PropertySitemapBuilder:
             "</url>"
         )
 
-    @classmethod
-    def build_urlset(cls, rows: list[dict]) -> str:
-        url_blocks = "".join(
-            cls.build_url_block(row)
-            for row in rows
-        )
-
+    @staticmethod
+    def wrap_urlset(joined_blocks: str) -> str:
         return (
             "<?xml version='1.0' encoding='utf-8'?>\n"
-            f"<urlset {NAMESPACES}>"
-            f"{url_blocks}"
-            "</urlset>"
+            f"<urlset {NAMESPACES}>{joined_blocks}</urlset>"
         )
+
+    @classmethod
+    def build_urlset(cls, rows: list[dict]) -> str:
+        blocks = "".join(cls.build_url_block(row) for row in rows)
+        return cls.wrap_urlset(blocks)

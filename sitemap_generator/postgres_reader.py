@@ -1,28 +1,21 @@
 from django.db import connection
 
-
 from apps.attractions.models import RentalProperty
+
 
 class SitemapPostgresReader:
     @staticmethod
     def iter_property_batches(batch_size: int):
         queryset = (
             RentalProperty.objects
-            .values(
-                "id",
-                "property_slug",
-                "images",
-                "updated_at",
-            )
+            .values("id", "property_slug", "images", "updated_at")
             .order_by("id")
             .iterator(chunk_size=batch_size)
         )
 
         batch = []
-
         for row in queryset:
             batch.append(row)
-
             if len(batch) >= batch_size:
                 yield batch
                 batch = []
@@ -31,7 +24,9 @@ class SitemapPostgresReader:
             yield batch
 
     @staticmethod
-    def iter_nearby_property_batches(batch_size: int):
+    def iter_nearby_property_batches(batch_size: int, radius_km: float):
+        radius_meters = radius_km * 1000
+
         sql = """
             SELECT DISTINCT
                 p2.id,
@@ -40,11 +35,7 @@ class SitemapPostgresReader:
                 p2.updated_at
             FROM attractions_rentalproperty p1
             JOIN attractions_rentalproperty p2
-                ON ST_DWithin(
-                    p1.geography_latlon,
-                    p2.geography_latlon,
-                    5000
-                )
+                ON ST_DWithin(p1.geography_latlon, p2.geography_latlon, %s)
             WHERE
                 p1.id <> p2.id
                 AND p1.geography_latlon IS NOT NULL
@@ -53,17 +44,11 @@ class SitemapPostgresReader:
         """
 
         with connection.cursor() as cursor:
-            cursor.execute(sql)
-
+            cursor.execute(sql, [radius_meters])
             columns = [col[0] for col in cursor.description]
 
             while True:
                 rows = cursor.fetchmany(batch_size)
-
                 if not rows:
                     break
-
-                yield [
-                    dict(zip(columns, row))
-                    for row in rows
-                ]
+                yield [dict(zip(columns, row)) for row in rows]

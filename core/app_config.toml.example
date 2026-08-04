@@ -50,3 +50,7 @@ query_batch_size = 50
 site_url = "https://www.rentbyowner.com"
 output_dir = "sitemap_output"
 gzip_output = true
+batch_size = 1000
+max_urls_per_file = 50000
+max_file_size_mb = 50
+nearby_radius_km = 5
