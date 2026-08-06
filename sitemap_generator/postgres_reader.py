@@ -33,8 +33,8 @@ class SitemapPostgresReader:
                 p2.property_slug,
                 p2.images,
                 p2.updated_at
-            FROM attractions_rentalproperty p1
-            JOIN attractions_rentalproperty p2
+            FROM rental_property p1
+            JOIN rental_property p2
                 ON ST_DWithin(p1.geography_latlon, p2.geography_latlon, %s)
             WHERE
                 p1.id <> p2.id
@@ -43,12 +43,16 @@ class SitemapPostgresReader:
             ORDER BY p2.id;
         """
 
-        with connection.cursor() as cursor:
-            cursor.execute(sql, [radius_meters])
-            columns = [col[0] for col in cursor.description]
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql, [radius_meters])
+                columns = [col[0] for col in cursor.description]
 
-            while True:
-                rows = cursor.fetchmany(batch_size)
-                if not rows:
-                    break
-                yield [dict(zip(columns, row)) for row in rows]
+                while True:
+                    rows = cursor.fetchmany(batch_size)
+                    if not rows:
+                        break
+                    yield [dict(zip(columns, row)) for row in rows]
+        except OperationalError as e:
+            print(f"Could not connect to database : {e}")
+            raise
