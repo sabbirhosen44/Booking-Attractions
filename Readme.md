@@ -38,8 +38,9 @@ booking_attraction/
 │       │       ├── import_attractions_dynamodb.py
 │       │       ├── import_attractions_vector.py
 │       │       ├── search_similar_attractions.py
-│       │       └── sync_vector_from_postgres.py
-│       │       └── generate_sitemap.py
+│       │       ├── sync_vector_from_postgres.py
+│       │       ├── generate_sitemap.py
+│       │       └── upload_sitemap.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
@@ -49,10 +50,10 @@ booking_attraction/
 │
 ├── core/
 │   ├── utils/
-│   │   ├── json_reader.py            # shared: streaming JSON reader (ijson)
-│   │   ├── location_mapping_reader.py # shared: resolves location codes to names
-│   │   ├── slug_util.py               # shared: slugify helper
-│   │   └── ...                        # Postgres-pipeline-only utils
+│   │   ├── json_reader.py
+│   │   ├── location_mapping_reader.py
+│   │   ├── slug_util.py
+│   │   └── ...
 │   ├── app_config.toml.example
 │   ├── configuration.py
 │   ├── settings.py
@@ -69,7 +70,7 @@ booking_attraction/
 │   ├── transforms/
 │   ├── writers/
 │   └── spark_pipeline_data/
-│       └── warehouse/          # local Iceberg warehouse (generated at runtime)
+│       └── warehouse/
 │
 ├── elasticsearch_etl/
 │   ├── config.py
@@ -143,11 +144,13 @@ booking_attraction/
 │   ├── postgres_reader.py
 │   ├── property_sitemap_builder.py
 │   ├── sitemap_index_builder.py
-|   ├── storage/
-│   │   ├── __init__.py 
-│   │   ├── config.py 
+│   │
+│   ├── storage/
+│   │   ├── __init__.py
+│   │   ├── config.py
 │   │   └── s3_uploader.py
-│   ├── sitemap_output/  
+│   │
+│   └── sitemap_output/
 │
 ├── data/
 │   ├── attraction_details/
@@ -167,6 +170,7 @@ booking_attraction/
 ├── README.md
 └── .gitignore
 ```
+
 
 
 ## Setup
