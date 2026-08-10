@@ -143,6 +143,10 @@ booking_attraction/
 │   ├── postgres_reader.py
 │   ├── property_sitemap_builder.py
 │   ├── sitemap_index_builder.py
+|   ├── storage/
+│   │   ├── __init__.py 
+│   │   ├── config.py 
+│   │   └── s3_uploader.py
 │   ├── sitemap_output/  
 │
 ├── data/
@@ -665,25 +669,27 @@ Sample query output. Images stored in `static/duplicate_detection/`.
 
 # Sitemap Generation
 
-The sitemap generator creates the following sitemap files:
+The sitemap generator creates compressed sitemap files:
 
-```
+```text
 property-sitemap.xml.gz
 nearby-property-sitemap.xml.gz
 site-map-all.xml.gz
 ```
 
-The generated files are stored in:
+The generated files are stored locally in:
 
-```
+```text
 sitemap_generator/sitemap_output/
 ```
 
+The same files are automatically uploaded to the configured **S3-compatible storage**. For local development, **MinIO** is used.
+
 ---
 
-## Step 1. Delete the previous sitemap output
+## Step 1. Delete the Previous Sitemap Output
 
-Before generating a new sitemap, remove the old output directory.
+Before generating a new sitemap, remove the previous output:
 
 ```bash
 docker compose exec web rm -rf /app/sitemap_generator/sitemap_output
@@ -691,25 +697,49 @@ docker compose exec web rm -rf /app/sitemap_generator/sitemap_output
 
 ---
 
-## Step 2. Generate the sitemaps
+## Step 2. Generate the Sitemaps
 
-Run the sitemap generation command.
+Run:
 
 ```bash
 docker compose exec web python manage.py generate_sitemap
 ```
 
-This command generates:
+The command:
 
-- `property-sitemap.xml.gz`
-- `nearby-property-sitemap.xml.gz`
-- `site-map-all.xml.gz`
+1. Reads property data from PostgreSQL.
+2. Generates the property sitemap.
+3. Generates the nearby-property sitemap.
+4. Splits files according to the configured URL and size limits.
+5. Compresses the files using gzip.
+6. Generates the sitemap index.
+7. Saves the files locally.
+8. Automatically uploads the generated files to S3/MinIO.
+
+Generated files include:
+
+```text
+property-sitemap.xml.gz
+nearby-property-sitemap.xml.gz
+site-map-all.xml.gz
+```
+
+If the configured limits are exceeded, additional files may be generated:
+
+```text
+property-sitemap.xml.gz
+property-sitemap-2.xml.gz
+property-sitemap-3.xml.gz
+...
+```
+
+The same applies to nearby-property sitemaps.
 
 ---
 
-## Step 3. Verify the generated files
+## Step 3. Verify the Generated Files
 
-Check that all sitemap files were generated successfully.
+Check the local sitemap output:
 
 ```bash
 docker compose exec web ls -lah /app/sitemap_generator/sitemap_output
@@ -717,7 +747,7 @@ docker compose exec web ls -lah /app/sitemap_generator/sitemap_output
 
 Expected output:
 
-```
+```text
 property-sitemap.xml.gz
 nearby-property-sitemap.xml.gz
 site-map-all.xml.gz
@@ -725,11 +755,87 @@ site-map-all.xml.gz
 
 ---
 
-## Step 4. Generate formatted XML files (optional)
+## Step 4. S3/MinIO Upload
+
+The sitemap upload is handled automatically by the sitemap generation pipeline.
+
+The relevant files are:
+
+```text
+sitemap_generator/
+├── pipeline.py
+└── storage/
+    ├── config.py
+    └── s3_uploader.py
+```
+
+`pipeline.py` uses `S3Uploader` to upload each generated sitemap:
+
+```text
+SitemapGenerationRunner
+        │
+        ├── Generate sitemap
+        │
+        ├── Write .xml.gz locally
+        │
+        └── Upload using S3Uploader
+```
+
+No separate upload command is required.
+
+The S3/MinIO configuration is defined in:
+
+```text
+core/app_config.toml
+```
+
+The uploaded object key follows:
+
+```text
+<prefix>/<filename>
+```
+
+For example:
+
+```text
+sitemaps/property-sitemap.xml.gz
+sitemaps/nearby-property-sitemap.xml.gz
+sitemaps/site-map-all.xml.gz
+```
+
+For local development, MinIO provides the S3-compatible storage service.
+
+---
+
+## Step 5. Verify the S3/MinIO Upload
+
+After running:
+
+```bash
+docker compose exec web python manage.py generate_sitemap
+```
+
+check the command output for upload messages such as:
+
+```text
+Uploaded property-sitemap.xml.gz to s3://<bucket>/sitemaps/property-sitemap.xml.gz
+Uploaded nearby-property-sitemap.xml.gz to s3://<bucket>/sitemaps/nearby-property-sitemap.xml.gz
+Uploaded site-map-all.xml.gz to s3://<bucket>/sitemaps/site-map-all.xml.gz
+```
+
+For local MinIO, the web console is available at:
+
+```text
+http://localhost:9001
+```
+
+---
+
+## Step 6. Generate Formatted XML Files (Optional)
 
 The sitemap generator writes compressed `.xml.gz` files.
 
-If you want readable XML files for debugging or inspection, run:
+For readable XML files during local debugging or inspection, run:
 
 ```bash
 docker compose exec web sh -c "python -c '
@@ -743,7 +849,7 @@ for gz_file in out_dir.glob(\"*.xml.gz\"):
     with gzip.open(gz_file, \"rt\", encoding=\"utf-8\") as f:
         doc = minidom.parse(f)
 
-    xml_file = gz_file.with_suffix(\"\")  # removes only .gz -> .xml
+    xml_file = gz_file.with_suffix(\"\")
 
     with open(xml_file, \"w\", encoding=\"utf-8\") as f:
         f.write(doc.toprettyxml(indent=\"    \"))
@@ -752,13 +858,16 @@ print(\"Formatted\", len(list(out_dir.glob(\"*.xml\"))), \"XML files.\")
 '"
 ```
 
-This command creates the following readable XML files alongside the compressed versions:
+This creates readable XML files alongside the compressed files:
 
-```
+```text
 property-sitemap.xml
 nearby-property-sitemap.xml
 site-map-all.xml
 ```
+
+These `.xml` files are intended for local inspection and debugging. The `.xml.gz` files remain the primary sitemap artifacts generated and uploaded by the pipeline.
+
 
 ---
 
