@@ -54,3 +54,11 @@ batch_size = 1000
 max_urls_per_file = 50000
 max_file_size_mb = 50
 nearby_radius_km = 5
+
+[s3]
+endpoint_url = "http://minio:9000"
+region = "us-east-1"
+bucket = "sitemap"
+access_key = "minioadmin"
+secret_key = "minioadmin"
+prefix = "sitemaps"

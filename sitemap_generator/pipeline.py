@@ -3,13 +3,17 @@ from sitemap_generator.postgres_reader import SitemapPostgresReader
 from sitemap_generator.property_sitemap_builder import PropertySitemapBuilder
 from sitemap_generator.sitemap_index_builder import SitemapIndexBuilder
 from sitemap_generator.writer import SitemapWriter
+from sitemap_generator.storage.config import S3Config
+from sitemap_generator.storage.s3_uploader import S3Uploader
 
 # Small safety margin for the xml header and closing tag
 WRAPPER_OVERHEAD_BYTES = 300
 
-
 # Generates property sitemap, nearby property sitemap and sitemap index
 class SitemapGenerationRunner:
+    def __init__(self):
+        self.s3_uploader = S3Uploader()
+        
     def run(self):
         filenames = []
         filenames.extend(self._write_chunked_sitemap(
@@ -65,17 +69,38 @@ class SitemapGenerationRunner:
 
         return filenames
 
-    @staticmethod
-    def _flush(base_filename: str, part: int, blocks: list[str]) -> str:
+    def _flush(self,base_filename: str, part: int, blocks: list[str]) -> str:
         xml_content = PropertySitemapBuilder.wrap_urlset("".join(blocks))
         filename = base_filename if part == 1 else f"{base_filename}-{part}"
 
-        SitemapWriter.write(filename, xml_content)
+        local_path = SitemapWriter.write(filename, xml_content)
         print(f"Wrote {filename} ({len(blocks)} urls)")
+        
+        self._upload(local_path)
+        
         return filename
 
-    @staticmethod
-    def _write_index(filenames: list[str]):
+    def _write_index(self,filenames: list[str]):
         xml_content = SitemapIndexBuilder.build(filenames)
-        SitemapWriter.write("site-map-all", xml_content)
+        local_path = SitemapWriter.write("site-map-all", xml_content)
         print("Wrote site-map-all")
+        
+        self._upload(local_path)
+        
+    def _upload(self, local_path: str):
+
+        filename = local_path.rsplit("/", 1)[-1]
+
+        prefix = S3Config.PREFIX.strip("/")
+
+        if prefix:
+            object_key = f"{prefix}/{filename}"
+        else:
+            object_key = filename
+
+        self.s3_uploader.upload(local_path=local_path,object_key=object_key,)
+
+        print(
+            f"Uploaded {filename} to "
+            f"s3://{S3Config.BUCKET}/{object_key}"
+        )

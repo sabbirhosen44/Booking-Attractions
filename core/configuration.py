@@ -32,3 +32,5 @@ DUPLICATE_DETECTION = CONFIG["duplicate_detection"]
 
 SITEMAP = CONFIG["sitemap"]
 
+S3 = CONFIG["s3"]
+
