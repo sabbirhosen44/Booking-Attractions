@@ -683,11 +683,11 @@ The generated files are stored locally in:
 sitemap_generator/sitemap_output/
 ```
 
-The same files are automatically uploaded to the configured **S3-compatible storage**. For local development, **MinIO** is used.
+For local development, **MinIO** is used as the S3-compatible storage.
 
 ---
 
-## Step 1. Delete the Previous Sitemap Output
+## Step 1. Delete Previous Sitemap Output
 
 Before generating a new sitemap, remove the previous output:
 
@@ -705,7 +705,7 @@ Run:
 docker compose exec web python manage.py generate_sitemap
 ```
 
-The command:
+This command:
 
 1. Reads property data from PostgreSQL.
 2. Generates the property sitemap.
@@ -713,8 +713,7 @@ The command:
 4. Splits files according to the configured URL and size limits.
 5. Compresses the files using gzip.
 6. Generates the sitemap index.
-7. Saves the files locally.
-8. Automatically uploads the generated files to S3/MinIO.
+7. Saves the generated files locally.
 
 Generated files include:
 
@@ -739,49 +738,36 @@ The same applies to nearby-property sitemaps.
 
 ## Step 3. Verify the Generated Files
 
-Check the local sitemap output:
+Check the sitemap output directory:
 
 ```bash
 docker compose exec web ls -lah /app/sitemap_generator/sitemap_output
 ```
 
-Expected output:
-
-```text
-property-sitemap.xml.gz
-nearby-property-sitemap.xml.gz
-site-map-all.xml.gz
-```
-
 ---
 
-## Step 4. S3/MinIO Upload
+## Step 4. Upload the Sitemaps
 
-The sitemap upload is handled automatically by the sitemap generation pipeline.
+After verifying the generated files, upload them separately:
 
-The relevant files are:
-
-```text
-sitemap_generator/
-├── pipeline.py
-└── storage/
-    ├── config.py
-    └── s3_uploader.py
+```bash
+docker compose exec web python manage.py upload_sitemap
 ```
 
-`pipeline.py` uses `S3Uploader` to upload each generated sitemap:
+The upload command:
+
+1. Reads the generated `.xml.gz` files from `sitemap_generator/sitemap_output/`.
+2. Uploads them using `S3Uploader`.
+3. Stores them in the configured S3 bucket and prefix.
+
+The upload-related files are:
 
 ```text
-SitemapGenerationRunner
-        │
-        ├── Generate sitemap
-        │
-        ├── Write .xml.gz locally
-        │
-        └── Upload using S3Uploader
+sitemap_generator/storage/
+├── config.py
+├── s3_uploader.py
+└── sitemap_uploader.py
 ```
-
-No separate upload command is required.
 
 The S3/MinIO configuration is defined in:
 
@@ -789,7 +775,7 @@ The S3/MinIO configuration is defined in:
 core/app_config.toml
 ```
 
-The uploaded object key follows:
+The object key follows:
 
 ```text
 <prefix>/<filename>
@@ -803,27 +789,7 @@ sitemaps/nearby-property-sitemap.xml.gz
 sitemaps/site-map-all.xml.gz
 ```
 
-For local development, MinIO provides the S3-compatible storage service.
-
----
-
-## Step 5. Verify the S3/MinIO Upload
-
-After running:
-
-```bash
-docker compose exec web python manage.py generate_sitemap
-```
-
-check the command output for upload messages such as:
-
-```text
-Uploaded property-sitemap.xml.gz to s3://<bucket>/sitemaps/property-sitemap.xml.gz
-Uploaded nearby-property-sitemap.xml.gz to s3://<bucket>/sitemaps/nearby-property-sitemap.xml.gz
-Uploaded site-map-all.xml.gz to s3://<bucket>/sitemaps/site-map-all.xml.gz
-```
-
-For local MinIO, the web console is available at:
+For local development, the files can be verified through the MinIO console:
 
 ```text
 http://localhost:9001
@@ -831,11 +797,11 @@ http://localhost:9001
 
 ---
 
-## Step 6. Generate Formatted XML Files (Optional)
+## Step 5. Generate Formatted XML Files (Optional)
 
-The sitemap generator writes compressed `.xml.gz` files.
+The sitemap generator creates compressed `.xml.gz` files.
 
-For readable XML files during local debugging or inspection, run:
+For local debugging or inspection, readable `.xml` files can be generated with:
 
 ```bash
 docker compose exec web sh -c "python -c '
@@ -858,7 +824,7 @@ print(\"Formatted\", len(list(out_dir.glob(\"*.xml\"))), \"XML files.\")
 '"
 ```
 
-This creates readable XML files alongside the compressed files:
+This creates:
 
 ```text
 property-sitemap.xml
@@ -866,10 +832,8 @@ nearby-property-sitemap.xml
 site-map-all.xml
 ```
 
-These `.xml` files are intended for local inspection and debugging. The `.xml.gz` files remain the primary sitemap artifacts generated and uploaded by the pipeline.
+These `.xml` files are intended for local inspection and debugging. The `.xml.gz` files are the generated sitemap artifacts used for upload.
 
-
----
 
 ## Author
 

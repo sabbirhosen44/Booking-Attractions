@@ -3,47 +3,67 @@ from sitemap_generator.postgres_reader import SitemapPostgresReader
 from sitemap_generator.property_sitemap_builder import PropertySitemapBuilder
 from sitemap_generator.sitemap_index_builder import SitemapIndexBuilder
 from sitemap_generator.writer import SitemapWriter
-from sitemap_generator.storage.config import S3Config
-from sitemap_generator.storage.s3_uploader import S3Uploader
 
-# Small safety margin for the xml header and closing tag
+
+# Small safety margin for the XML header and closing tag
 WRAPPER_OVERHEAD_BYTES = 300
+
 
 # Generates property sitemap, nearby property sitemap and sitemap index
 class SitemapGenerationRunner:
-    def __init__(self):
-        self.s3_uploader = S3Uploader()
-        
+
     def run(self):
         filenames = []
-        filenames.extend(self._write_chunked_sitemap(
-            "property-sitemap", self._property_rows()
-        ))
-        filenames.extend(self._write_chunked_sitemap(
-            "nearby-property-sitemap", self._nearby_rows()
-        ))
+
+        filenames.extend(
+            self._write_chunked_sitemap(
+                "property-sitemap",
+                self._property_rows(),
+            )
+        )
+
+        filenames.extend(
+            self._write_chunked_sitemap(
+                "nearby-property-sitemap",
+                self._nearby_rows(),
+            )
+        )
 
         self._write_index(filenames)
-        print(f"Generated {len(filenames)} sitemap files in {SitemapConfig.OUTPUT_DIR}")
+
+        print(
+            f"Generated {len(filenames)} sitemap files "
+            f"in {SitemapConfig.OUTPUT_DIR}"
+        )
 
     @staticmethod
     def _property_rows():
-        for batch in SitemapPostgresReader.iter_property_batches(SitemapConfig.BATCH_SIZE):
+        for batch in SitemapPostgresReader.iter_property_batches(
+            SitemapConfig.BATCH_SIZE
+        ):
             yield from batch
 
     @staticmethod
     def _nearby_rows():
         for batch in SitemapPostgresReader.iter_nearby_property_batches(
-            SitemapConfig.BATCH_SIZE, SitemapConfig.NEARBY_RADIUS_KM
+            SitemapConfig.BATCH_SIZE,
+            SitemapConfig.NEARBY_RADIUS_KM,
         ):
             yield from batch
 
-    def _write_chunked_sitemap(self, base_filename: str, rows) -> list[str]:
+    def _write_chunked_sitemap(
+        self,
+        base_filename: str,
+        rows,
+    ) -> list[str]:
+
         print(f"Building {base_filename}...")
 
         max_bytes = SitemapConfig.MAX_FILE_SIZE_MB * 1024 * 1024
+
         filenames = []
         part = 1
+
         buffer_blocks = []
         buffer_size = 0
         buffer_count = 0
@@ -53,54 +73,68 @@ class SitemapGenerationRunner:
             block_size = len(block.encode("utf-8"))
 
             would_exceed_count = buffer_count + 1 > SitemapConfig.MAX_URLS_PER_FILE
-            would_exceed_size = buffer_size + block_size + WRAPPER_OVERHEAD_BYTES > max_bytes
+
+            would_exceed_size = (
+                buffer_size + block_size + WRAPPER_OVERHEAD_BYTES > max_bytes
+            )
 
             if buffer_blocks and (would_exceed_count or would_exceed_size):
-                filenames.append(self._flush(base_filename, part, buffer_blocks))
+                filenames.append(
+                    self._flush(
+                        base_filename,
+                        part,
+                        buffer_blocks,
+                    )
+                )
+
                 part += 1
-                buffer_blocks, buffer_size, buffer_count = [], 0, 0
+
+                buffer_blocks = []
+                buffer_size = 0
+                buffer_count = 0
 
             buffer_blocks.append(block)
             buffer_size += block_size
             buffer_count += 1
 
         if buffer_blocks:
-            filenames.append(self._flush(base_filename, part, buffer_blocks))
+            filenames.append(
+                self._flush(
+                    base_filename,
+                    part,
+                    buffer_blocks,
+                )
+            )
 
         return filenames
 
-    def _flush(self,base_filename: str, part: int, blocks: list[str]) -> str:
+    @staticmethod
+    def _flush(
+        base_filename: str,
+        part: int,
+        blocks: list[str],
+    ) -> str:
+
         xml_content = PropertySitemapBuilder.wrap_urlset("".join(blocks))
+
         filename = base_filename if part == 1 else f"{base_filename}-{part}"
 
-        local_path = SitemapWriter.write(filename, xml_content)
-        print(f"Wrote {filename} ({len(blocks)} urls)")
-        
-        self._upload(local_path)
-        
+        SitemapWriter.write(
+            filename,
+            xml_content,
+        )
+
+        print(f"Wrote {filename} " f"({len(blocks)} urls)")
+
         return filename
 
-    def _write_index(self,filenames: list[str]):
+    @staticmethod
+    def _write_index(filenames: list[str]):
         xml_content = SitemapIndexBuilder.build(filenames)
-        local_path = SitemapWriter.write("site-map-all", xml_content)
-        print("Wrote site-map-all")
-        
-        self._upload(local_path)
-        
-    def _upload(self, local_path: str):
 
-        filename = local_path.rsplit("/", 1)[-1]
-
-        prefix = S3Config.PREFIX.strip("/")
-
-        if prefix:
-            object_key = f"{prefix}/{filename}"
-        else:
-            object_key = filename
-
-        self.s3_uploader.upload(local_path=local_path,object_key=object_key,)
-
-        print(
-            f"Uploaded {filename} to "
-            f"s3://{S3Config.BUCKET}/{object_key}"
+        SitemapWriter.write(
+            "site-map-all",
+            xml_content,
         )
+
+        print("Wrote site-map-all")
