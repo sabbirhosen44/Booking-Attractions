@@ -62,3 +62,17 @@ bucket = "sitemap"
 access_key = "minioadmin"
 secret_key = "minioadmin"
 prefix = "sitemaps"
+
+[adcampaigner]
+output_dir = "adcampaigner/output"
+max_rows_per_file = 700000
+site_url = "https://www.rentbyowner.com"
+feed_base_url = "https://cdn.rentbyowner.com/property-marketing-ads/google-page-feed/property/property-all"
+partner = "BOOKING.COM"
+route = "property"
+location_names = "all"
+campaign_type = "page_feed"
+status = 202
+country_map_file = "data/country_map.json"
+tier_region_continent_map_file = "data/tier_region_continent_map.json"
+price_score_percentiles_file = "data/price_score_percentiles.json"

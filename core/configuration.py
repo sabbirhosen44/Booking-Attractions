@@ -34,3 +34,5 @@ SITEMAP = CONFIG["sitemap"]
 
 S3 = CONFIG["s3"]
 
+ADCAMPAIGNER = CONFIG["adcampaigner"]
+
