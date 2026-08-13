@@ -1,4 +1,4 @@
-from bisect import bisect_right
+from bisect import bisect_left
 
 
 class PropertyScoreTransformer:
@@ -22,9 +22,9 @@ class PropertyScoreTransformer:
         if not self.price_scores:
             return "void"
 
-        index = bisect_right(self.price_scores, price)
+        index = bisect_left(self.price_scores, price)
 
-        if index >= len(self.price_scores) - 1:
+        if index >= len(self.price_scores):
             return "void"
 
-        return self.price_scores[index + 1]
+        return self.price_scores[index]
