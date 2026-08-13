@@ -53,10 +53,7 @@ class AdCampaignerGenerationRunner:
             AdCampaignerConfig.MAX_ROWS_PER_FILE,
         )
 
-        self.html_writer = HtmlIndexWriter(
-            AdCampaignerConfig.OUTPUT_DIR,
-            AdCampaignerConfig.FEED_BASE_URL,
-        )
+        self.html_writer = HtmlIndexWriter()
 
     def run(self):
         rows_by_continent = defaultdict(list)

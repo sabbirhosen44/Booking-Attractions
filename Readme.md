@@ -41,6 +41,7 @@ booking_attraction/
 │       │       ├── sync_vector_from_postgres.py
 │       │       ├── generate_sitemap.py
 │       │       └── upload_sitemap.py
+│       |       └── generate_adcampaigner_feed.py
 │       ├── migrations/
 │       ├── models.py
 │       ├── services.py
@@ -151,6 +152,23 @@ booking_attraction/
 │   │   └── s3_uploader.py
 │   │
 │   └── sitemap_output/
+├── adcampaigner/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── pipeline.py
+│   ├── postgres_reader.py
+│   ├── builders/
+│   │   ├── custom_label_builder.py
+│   │   ├── feed_row_builder.py
+│   │   └── page_url_builder.py
+│   ├── transformers/
+│   │   ├── location_mapper.py
+│   │   ├── price_segment.py
+│   │   ├── property_score.py
+│   │   └── property_transformer.py
+│   └── writers/
+│       ├── csv_writer.py
+│       └── html_index_writer.py
 │
 ├── data/
 │   ├── attraction_details/
@@ -170,7 +188,6 @@ booking_attraction/
 ├── README.md
 └── .gitignore
 ```
-
 
 
 ## Setup
@@ -837,6 +854,93 @@ site-map-all.xml
 ```
 
 These `.xml` files are intended for local inspection and debugging. The `.xml.gz` files are the generated sitemap artifacts used for upload.
+
+---
+
+# AdCampaigner Feed Generation
+
+The AdCampaigner feed generator creates Booking.com property marketing feeds from property data stored in PostgreSQL.
+
+For each property, it generates:
+
+- A property page URL
+- A custom label containing property and pricing information
+- CSV feed files separated by continent
+- An HTML index page containing links to the generated feed files
+
+## Run
+
+Generate the feeds with:
+
+```bash
+docker compose exec web python manage.py generate_adcampaigner_feed
+```
+
+The generated files are stored in:
+
+```text
+adcampaigner/output/
+```
+
+Example output:
+
+```text
+adcampaigner/output/
+├── rbo_google_page_property_feed_booking_africa.csv
+├── rbo_google_page_property_feed_booking_as.csv
+├── rbo_google_page_property_feed_booking_eu.csv
+├── rbo_google_page_property_feed_booking_nam.csv
+├── rbo_google_page_property_feed_booking_oc.csv
+├── rbo_google_page_property_feed_booking_sam.csv
+└── index.html
+```
+
+## CSV Feed
+
+Each CSV feed contains two columns:
+
+```text
+Page URL,Custom label
+```
+
+The `Page URL` contains the property page URL.
+
+The `Custom label` contains the property information, pricing segment, price, property score, partner, location, and other feed attributes.
+
+Example:
+
+```text
+SINGLE_PRODUCT;Cairo;Egypt;void;segments 1;170.69;170.0;void;BOOKING.COM;AFR;Tier 5;property;AFR-North
+```
+
+
+## HTML Feed Index
+
+The generator also creates an `index.html` file.
+
+The HTML index provides a browser-friendly list of all generated feed files. Each feed filename is displayed as a clickable link to the corresponding feed URL.
+
+Open the generated `index.html` file in a browser to view the feed index.
+
+## Screenshots
+
+Sample AdCampaigner feed output. Images stored in `static/adcampaigner/`.
+
+| Output | Preview |
+|---|---|
+| Generated CSV feed | ![adcampaigner_csv](static/adcampaigner/adcampaigner_csv.png) |
+| Feed index in browser | ![adcampaigner_index](static/adcampaigner/adcampaigner_index.png) |
+
+## Output
+
+The AdCampaigner generation process produces:
+
+| Output | Description |
+|---|---|
+| `.csv` files | Property marketing feed files separated by continent |
+| `index.html` | Browser-friendly index containing links to the generated feed files |
+
+---
 
 
 ## Author
