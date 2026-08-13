@@ -27,4 +27,4 @@ class PropertyScoreTransformer:
         if index >= len(self.price_scores) - 1:
             return "void"
 
-        return int(self.price_scores[index + 1])
+        return self.price_scores[index + 1]
