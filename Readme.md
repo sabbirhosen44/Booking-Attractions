@@ -859,18 +859,22 @@ These `.xml` files are intended for local inspection and debugging. The `.xml.gz
 
 # AdCampaigner Feed Generation
 
-The AdCampaigner feed generator creates Booking.com property marketing feeds from property data stored in PostgreSQL.
+The AdCampaigner feed generator creates Booking.com property marketing feeds from property data stored in PostgreSQL. It produces two separate feed types in a single run:
+
+- **Page feed** — one row per property, split into per-continent CSV files, used for Google page-feed campaigns.
+- **Remarketing feed** — one row per property, split into flat (non-continent) part files by row count, used for Google remarketing/dynamic ads.
 
 For each property, it generates:
 
 - A property page URL
-- A custom label containing property and pricing information
-- CSV feed files separated by continent
-- An HTML index page containing links to the generated feed files
+- A custom label containing property and pricing information (page feed)
+- A short marketing description, first image, destination name, and price (remarketing feed)
+- CSV feed files for both feed types
+- An HTML index page listing all generated feed files for both feeds, with row counts and feed URLs
 
 ## Run
 
-Generate the feeds with:
+Generate both feeds with a single command:
 
 ```bash
 docker compose exec web python manage.py generate_adcampaigner_feed
@@ -892,12 +896,15 @@ adcampaigner/output/
 ├── rbo_google_page_property_feed_booking_nam.csv
 ├── rbo_google_page_property_feed_booking_oc.csv
 ├── rbo_google_page_property_feed_booking_sam.csv
+├── rbo_google_re-marketing_property_feed_booking_part1.csv
+├── rbo_google_re-marketing_property_feed_booking_part2.csv
+├── ...
 └── index.html
 ```
 
-## CSV Feed
+## Page Feed CSV
 
-Each CSV feed contains two columns:
+Each page feed CSV contains two columns:
 
 ```text
 Page URL,Custom label
@@ -913,12 +920,39 @@ Example:
 SINGLE_PRODUCT;Cairo;Egypt;void;segments 1;170.69;170.0;void;BOOKING.COM;AFR;Tier 5;property;AFR-North
 ```
 
+## Remarketing Feed CSV
+
+Each remarketing feed CSV contains nine columns:
+
+```text
+Property ID,Property Name,Final URL,Image URL,Destination Name,Description,Price,Star Rating,Category
+```
+
+| Column | Source |
+|---|---|
+| `Property ID` | `booking_id` |
+| `Property Name` | `property_name` |
+| `Final URL` | Property page URL with `origin=csv_feed` and `score=<property_score>` query parameters appended |
+| `Image URL` | First image from the property's image list |
+| `Destination Name` | City, state, and country (`void` where any part is unavailable) |
+| `Description` | A short, generated one-sentence description built from the property's category and location — no AI, derived entirely from existing data |
+| `Price` | `usd_price` formatted as `"171 USD"` |
+| `Star Rating` | Always `void` |
+| `Category` | First activity category for the property |
+
+Rows are not split by continent — the writer accumulates all properties into one ordered stream and splits purely by row count, always appending a `_partN` suffix (including `_part1` for the first file).
+
+Example:
+
+```text
+PR006pNP9LIp,Transfert privé de Calgary,https://www.rentbyowner.com/property/.../PR006pNP9LIp?origin=csv_feed&score=254.05,https://q-xx.bstatic.com/xdata/images/xphoto/900x600/401752144.jpg,"Calgary, void, Canada","Explore this travel services rental in Calgary, Canada.",249 USD,void,travel_services_rental
+```
 
 ## HTML Feed Index
 
-The generator also creates an `index.html` file.
+The generator also creates a single `index.html` file covering both feeds.
 
-The HTML index provides a browser-friendly list of all generated feed files. Each feed filename is displayed as a clickable link to the corresponding feed URL.
+The HTML index provides a browser-friendly list of all generated feed files — page feed and remarketing feed together — each row showing campaign type (`page_feed` or `re-marketing_feed`), route, a clickable link to the feed file, location names, row count, and status. Each feed filename links to its corresponding CDN URL (page feed and remarketing feed use separate base URLs).
 
 Open the generated `index.html` file in a browser to view the feed index.
 
@@ -928,7 +962,8 @@ Sample AdCampaigner feed output. Images stored in `static/adcampaigner/`.
 
 | Output | Preview |
 |---|---|
-| Generated CSV feed | ![adcampaigner_csv](static/adcampaigner/adcampaigner_csv.png) |
+| Generated page feed CSV | ![adcampaigner_csv](static/adcampaigner/adcampaigner_csv.png) |
+| Generated remarketing feed CSV | ![adcampaigner_remarketing_csv](static/adcampaigner/adcampaigner_remarketing_csv.png) |
 | Feed index in browser | ![adcampaigner_index](static/adcampaigner/adcampaigner_index.png) |
 
 ## Output
@@ -937,9 +972,9 @@ The AdCampaigner generation process produces:
 
 | Output | Description |
 |---|---|
-| `.csv` files | Property marketing feed files separated by continent |
-| `index.html` | Browser-friendly index containing links to the generated feed files |
-
+| Page feed `.csv` files | Property marketing feed files separated by continent |
+| Remarketing feed `.csv` files | Property remarketing feed files, split by row count only (no continent split) |
+| `index.html` | Browser-friendly index containing links to all generated feed files across both feed types |
 ---
 
 
