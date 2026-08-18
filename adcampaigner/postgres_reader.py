@@ -4,13 +4,17 @@ from apps.attractions.models import RentalProperty
 class PostgresPropertyReader:
 
     FIELDS = (
-        "booking_id",
-        "property_name",
-        "property_slug",
-        "city",
-        "country_code",
-        "property_type",
-        "usd_price",
+    "booking_id",
+    "property_name",
+    "property_slug",
+    "city",
+    "state",
+    "country_code",
+    "property_type",
+    "activity_categories",
+    "property_attributes",
+    "images",
+    "usd_price",
     )
 
     def read(self):

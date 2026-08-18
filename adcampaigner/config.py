@@ -26,11 +26,15 @@ class AdCampaignerConfig:
         "feed_base_url",
         "https://cdn.rentbyowner.com/property-marketing-ads/google-page-feed/property/property-all",
     ).rstrip("/")
+    
+    REMARKETING_FEED_BASE_URL = ADCAMPAIGNER.get(
+    "remarketing_feed_base_url",
+    "https://cdn.rentbyowner.com/property-marketing-ads/google-re-marketing-feed/property-all",
+    ).rstrip("/")
 
     PARTNER = ADCAMPAIGNER.get("partner", "BOOKING.COM")
     ROUTE = ADCAMPAIGNER.get("route", "property")
     LOCATION_NAMES = ADCAMPAIGNER.get("location_names", "all")
-    CAMPAIGN_TYPE = ADCAMPAIGNER.get("campaign_type", "page_feed")
     STATUS = int(ADCAMPAIGNER.get("status", 202))
 
     COUNTRY_MAP_FILE = BASE_DIR / ADCAMPAIGNER.get(
@@ -55,6 +59,16 @@ class AdCampaignerConfig:
     LABEL_ROUTE = "property"
 
     FILE_PREFIX = "rbo_google_page_property_feed_booking"
+    
+    REMARKETING_FILE_PREFIX = "rbo_google_re-marketing_property_feed_booking"
+    
+    REMARKETING_ORIGIN_PARAM = "csv_feed"
+    
+    STAR_RATING_VALUE = "void"
+    
+    PAGE_CAMPAIGN_TYPE = "page_feed"
+    
+    REMARKETING_CAMPAIGN_TYPE = "re-marketing_feed"
 
     INDEX_FILE_NAME = "index.html"
 
@@ -77,6 +91,14 @@ class AdCampaignerConfig:
             return f"{cls.FILE_PREFIX}_{continent_code}.csv"
 
         return f"{cls.FILE_PREFIX}_{continent_code}_part{part}.csv"
+
+    @classmethod
+    def get_remarketing_file_name(cls, part: int = 1) -> str:
+        return f"{cls.REMARKETING_FILE_PREFIX}_part{part}.csv"
+
+    @classmethod
+    def get_remarketing_feed_url(cls, filename: str) -> str:
+        return f"{cls.REMARKETING_FEED_BASE_URL}/{filename}"
 
     @classmethod
     def get_feed_url(cls, filename: str) -> str:

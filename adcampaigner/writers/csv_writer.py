@@ -1,14 +1,16 @@
 import csv
 from pathlib import Path
 
-
-# Writes feed rows into continent-specific CSV files
-
 class CsvWriter:
 
     HEADERS = [
         "Page URL",
         "Custom label",
+    ]
+
+    FIELD_KEYS = [
+        "page_url",
+        "custom_label",
     ]
 
     def __init__(
@@ -85,14 +87,8 @@ class CsvWriter:
             for row in rows:
                 writer.writerow(
                     [
-                        self._get_value(
-                            row,
-                            "page_url",
-                        ),
-                        self._get_value(
-                            row,
-                            "custom_label",
-                        ),
+                        self._get_value(row, key)
+                        for key in self.FIELD_KEYS
                     ]
                 )
 

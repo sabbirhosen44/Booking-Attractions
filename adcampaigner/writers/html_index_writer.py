@@ -11,7 +11,7 @@ class HtmlIndexWriter:
         self.output_dir = AdCampaignerConfig.OUTPUT_DIR
         self.feed_base_url = AdCampaignerConfig.FEED_BASE_URL
 
-    def write(self, feed_files):
+    def write(self, feed_entries):
         self.output_dir.mkdir(
             parents=True,
             exist_ok=True,
@@ -22,7 +22,7 @@ class HtmlIndexWriter:
             / AdCampaignerConfig.INDEX_FILE_NAME
         )
 
-        rows = self._build_rows(feed_files)
+        rows = self._build_rows(feed_entries)
 
         html = self._build_html(rows)
 
@@ -33,10 +33,13 @@ class HtmlIndexWriter:
 
         return index_path
 
-    def _build_rows(self, feed_files):
+    def _build_rows(self, feed_entries):
         rows = []
 
-        for filename in sorted(feed_files):
+        for filename, campaign_type in sorted(
+            feed_entries,
+            key=lambda entry: entry[0],
+        ):
             file_path = self.output_dir / filename
 
             if not file_path.exists():
@@ -44,17 +47,17 @@ class HtmlIndexWriter:
 
             count = self._get_row_count(file_path)
 
+            feed_url = (
+                AdCampaignerConfig.get_remarketing_feed_url(filename)
+                if campaign_type == AdCampaignerConfig.REMARKETING_CAMPAIGN_TYPE
+                else AdCampaignerConfig.get_feed_url(filename)
+            )
+
             rows.append(
                 {
-                    "campaign_type": (
-                        AdCampaignerConfig.CAMPAIGN_TYPE
-                    ),
+                    "campaign_type": campaign_type,
                     "route": AdCampaignerConfig.ROUTE,
-                    "feed_url": (
-                        AdCampaignerConfig.get_feed_url(
-                            filename
-                        )
-                    ),
+                    "feed_url": feed_url,
                     "location_names": (
                         AdCampaignerConfig.LOCATION_NAMES
                     ),
