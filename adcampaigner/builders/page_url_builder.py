@@ -1,6 +1,7 @@
 from urllib.parse import quote
 
 from adcampaigner.config import AdCampaignerConfig
+from adcampaigner.utils.normalizer import ValueNormalizer
 
 
 class PageUrlBuilder:
@@ -11,13 +12,11 @@ class PageUrlBuilder:
         ).rstrip("/")
 
     def build(self, property_data):
-        slug = self._value(
+        slug = ValueNormalizer.normalize(
             property_data.get("property_slug")
         )
 
-        property_id = self._get_property_id(
-            property_data
-        )
+        property_id = self._get_property_id(property_data)
 
         if slug == "void" or property_id == "void":
             return "void"
@@ -33,20 +32,8 @@ class PageUrlBuilder:
         booking_id = property_data.get("booking_id")
 
         if booking_id:
-            return self._value(booking_id)
+            return ValueNormalizer.normalize(booking_id)
 
-        property_id = property_data.get("id")
-
-        return self._value(property_id)
-
-    def _value(self, value):
-        if value is None:
-            return "void"
-
-        if isinstance(value, str):
-            value = value.strip()
-
-            if not value:
-                return "void"
-
-        return str(value)
+        return ValueNormalizer.normalize(
+            property_data.get("id")
+        )

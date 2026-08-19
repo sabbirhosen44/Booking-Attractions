@@ -1,3 +1,4 @@
+from adcampaigner.utils.normalizer import ValueNormalizer
 from urllib.parse import urlencode
 
 
@@ -46,9 +47,17 @@ class RemarketingRowBuilder:
         return property_score
 
     def _destination_name(self, property_data, location):
-        city = self._value(property_data.get("city"))
-        state = self._value(property_data.get("state"))
-        country = self._value(location.get("country"))
+        city = ValueNormalizer.normalize(
+        property_data.get("city")
+        )
+
+        state = ValueNormalizer.normalize(
+            property_data.get("state")
+        )
+
+        country = ValueNormalizer.normalize(
+            location.get("country")
+        )
 
         return f"{city}, {state}, {country}"
 
@@ -102,15 +111,3 @@ class RemarketingRowBuilder:
             return f"{int(round(float(value)))} USD"
         except (TypeError, ValueError):
             return "void"
-
-    def _value(self, value):
-        if value is None:
-            return "void"
-
-        if isinstance(value, str):
-            value = value.strip()
-
-            if not value:
-                return "void"
-
-        return str(value)

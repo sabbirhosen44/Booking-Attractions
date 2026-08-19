@@ -1,6 +1,7 @@
 import csv
 from pathlib import Path
 
+
 class CsvWriter:
 
     HEADERS = [
@@ -21,83 +22,173 @@ class CsvWriter:
         self.output_dir = Path(output_dir)
         self.max_rows_per_file = max_rows_per_file
 
-    def write(
-        self,
-        rows,
-        filename: str,
-    ) -> list[str]:
+        self._file = None
+        self._writer = None
+        self._current_filename = None
+        self._current_count = 0
+        self._part = 0
+        self._base_filename = None
+        self._files = []
 
-        rows = list(rows)
-
-        if not rows:
-            return []
-
+    def start(self, filename: str) -> None:
         self.output_dir.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-        files = []
-        total_rows = len(rows)
+        self._base_filename = filename
+        self._part = 0
+        self._files = []
 
-        for start in range(
-            0,
-            total_rows,
-            self.max_rows_per_file,
+        self._open_next_file()
+
+    def write_row(self, row: dict) -> None:
+        if self._file is None:
+            raise RuntimeError(
+                "CsvWriter has not been started. "
+                "Call start() before write_row()."
+            )
+
+        if (
+            self._current_count
+            >= self.max_rows_per_file
         ):
-            chunk = rows[
-                start:start + self.max_rows_per_file
-            ]
+            self._close_current_file()
+            self._open_next_file()
 
-            part = start // self.max_rows_per_file + 1
+        self._writer.writerow(
+            self._get_row_values(row)
+        )
 
-            output_filename = self._build_filename(
-                filename,
-                part,
-                total_rows,
-            )
+        self._current_count += 1
 
-            output_path = self.output_dir / output_filename
+    def finish(self) -> list[tuple[str, int]]:
+        if self._file is None:
+            return []
 
-            self._write_file(
-                output_path,
-                chunk,
-            )
+        self._close_current_file()
 
-            files.append(output_filename)
+        return self._finalize_filenames()
 
-        return files
+    def _open_next_file(self) -> None:
+        self._part += 1
+        self._current_count = 0
 
-    def _write_file(
-        self,
-        output_path: Path,
-        rows: list[dict],
-    ) -> None:
+        filename = self._build_part_filename(
+            self._base_filename,
+            self._part,
+        )
 
-        with output_path.open(
+        output_path = (
+            self.output_dir / filename
+        )
+
+        self._file = output_path.open(
             "w",
             encoding="utf-8",
             newline="",
-        ) as file:
+        )
 
-            writer = csv.writer(file)
+        self._writer = csv.writer(
+            self._file
+        )
 
-            writer.writerow(self.HEADERS)
+        self._writer.writerow(
+            self.HEADERS
+        )
 
-            for row in rows:
-                writer.writerow(
-                    [
-                        self._get_value(row, key)
-                        for key in self.FIELD_KEYS
-                    ]
+        self._current_filename = filename
+
+    def _close_current_file(self) -> None:
+        if self._file is None:
+            return
+
+        self._file.close()
+
+        self._files.append(
+            (
+                self._current_filename,
+                self._current_count,
+            )
+        )
+
+        self._file = None
+        self._writer = None
+
+    def _finalize_filenames(self):
+        if not self._files:
+            return []
+
+        # If only one part was generated and it has
+        # <= max_rows_per_file records, rename:
+        #
+        # *_part1.csv
+        #
+        # to:
+        #
+        # *.csv
+        #
+        if len(self._files) == 1:
+            filename, count = self._files[0]
+
+            if filename.endswith("_part1.csv"):
+                final_filename = (
+                    filename[:-len("_part1.csv")]
+                    + ".csv"
                 )
+
+                source = (
+                    self.output_dir / filename
+                )
+
+                destination = (
+                    self.output_dir
+                    / final_filename
+                )
+
+                if destination.exists():
+                    destination.unlink()
+
+                source.rename(destination)
+
+                return [
+                    (
+                        final_filename,
+                        count,
+                    )
+                ]
+
+        return self._files
+
+    @staticmethod
+    def _build_part_filename(
+        filename: str,
+        part: int,
+    ) -> str:
+        path = Path(filename)
+
+        return (
+            f"{path.stem}_part{part}"
+            f"{path.suffix}"
+        )
+
+    def _get_row_values(
+        self,
+        row: dict,
+    ) -> list[str]:
+        return [
+            self._get_value(
+                row,
+                field,
+            )
+            for field in self.FIELD_KEYS
+        ]
 
     @staticmethod
     def _get_value(
         row: dict,
         field: str,
     ) -> str:
-
         value = row.get(field)
 
         if value is None:
@@ -106,20 +197,3 @@ class CsvWriter:
         value = str(value).strip()
 
         return value if value else "void"
-
-    @staticmethod
-    def _build_filename(
-        filename: str,
-        part: int,
-        total_rows: int,
-    ) -> str:
-
-        if total_rows <= 700000 or part == 1:
-            return filename
-
-        path = Path(filename)
-
-        return (
-            f"{path.stem}_part{part}"
-            f"{path.suffix}"
-        )

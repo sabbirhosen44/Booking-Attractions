@@ -1,7 +1,5 @@
-from pathlib import Path
-
-from adcampaigner.writers.csv_writer import CsvWriter
 from adcampaigner.config import AdCampaignerConfig
+from adcampaigner.writers.csv_writer import CsvWriter
 
 
 class RemarketingCsvWriter(CsvWriter):
@@ -30,42 +28,7 @@ class RemarketingCsvWriter(CsvWriter):
         "category",
     ]
 
-    def write(self, rows) -> list[str]:
-        rows = list(rows)
-
-        if not rows:
-            return []
-
-        self.output_dir.mkdir(
-            parents=True,
-            exist_ok=True,
+    def start(self) -> None:
+        super().start(
+            AdCampaignerConfig.get_remarketing_file_name()
         )
-
-        files = []
-        total_rows = len(rows)
-
-        for start in range(
-            0,
-            total_rows,
-            self.max_rows_per_file,
-        ):
-            chunk = rows[
-                start:start + self.max_rows_per_file
-            ]
-
-            part = start // self.max_rows_per_file + 1
-
-            output_filename = (
-                AdCampaignerConfig.get_remarketing_file_name(part)
-            )
-
-            output_path = self.output_dir / output_filename
-
-            self._write_file(
-                output_path,
-                chunk,
-            )
-
-            files.append(output_filename)
-
-        return files

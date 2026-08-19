@@ -1,3 +1,4 @@
+from adcampaigner.utils.normalizer import ValueNormalizer
 import json
 
 
@@ -23,13 +24,13 @@ class LocationMapper:
 
         return {
             "country": country,
-            "continent": self._value(
+            "continent": ValueNormalizer.normalize(
                 location.get("continent_code")
             ),
-            "tier": self._value(
+            "tier": ValueNormalizer.normalize(
                 location.get("tier_dest")
             ),
-            "region": self._value(
+            "region": ValueNormalizer.normalize(
                 location.get("region")
             ),
         }

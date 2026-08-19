@@ -1,9 +1,11 @@
+from adcampaigner.utils.normalizer import ValueNormalizer
+
 class FeedRowBuilder:
 
     def build(self, page_url, custom_label):
         return {
-            "page_url": self._value(page_url),
-            "custom_label": self._value(custom_label),
+            "page_url": ValueNormalizer.normalize(page_url),
+            "custom_label": ValueNormalizer.normalize(custom_label),
         }
 
     def _value(self, value):

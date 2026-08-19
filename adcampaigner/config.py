@@ -28,8 +28,8 @@ class AdCampaignerConfig:
     ).rstrip("/")
     
     REMARKETING_FEED_BASE_URL = ADCAMPAIGNER.get(
-    "remarketing_feed_base_url",
-    "https://cdn.rentbyowner.com/property-marketing-ads/google-re-marketing-feed/property-all",
+        "remarketing_feed_base_url",
+        "https://cdn.rentbyowner.com/property-marketing-ads/google-re-marketing-feed/property-all",
     ).rstrip("/")
 
     PARTNER = ADCAMPAIGNER.get("partner", "BOOKING.COM")
