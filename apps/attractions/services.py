@@ -8,6 +8,7 @@ from django.db import close_old_connections
 
 from apps.attractions.db_services import (
     AttractionDBService,
+    LocationDBService,
     PriceHistoryDBService,
     ReviewDBService,
     ReviewScoreDBService,
@@ -18,6 +19,7 @@ from core.utils.batch_buffer import BatchBuffer
 from core.utils.locked_write import LockedWrite
 from core.utils.import_config import ImportConfig
 from core.utils.attraction_row_builder import AttractionRowBuilder
+from core.utils.location_row_builder import LocationRowBuilder
 from core.utils.price_row_builder import PriceRowBuilder
 from core.utils.review_row_builder import ReviewRowBuilder
 from core.utils.skip_counter import SkipCounter
@@ -54,7 +56,7 @@ class BaseImporter(ABC):
         close_old_connections()
 
 
-# Imports attraction details into RentalProperty, RentalPropertyLocalize and PropertyImageMeta
+# Imports attraction details into RentalProperty, RentalPropertyLocalize, PropertyImageMeta and Location
 class AttractionDetailsImporter(BaseImporter):
 
     folder_name = "attraction_details"
@@ -62,8 +64,9 @@ class AttractionDetailsImporter(BaseImporter):
     def __init__(self, config=ImportConfig):
         super().__init__(config)
         self.row_builder = AttractionRowBuilder()
+        self.location_row_builder = LocationRowBuilder()
 
-    def _flush(self, properties, localized, photos):
+    def _flush(self, properties, localized, photos, locations):
         with LockedWrite():
             if properties:
                 AttractionDBService.save_properties(properties.items())
@@ -74,14 +77,19 @@ class AttractionDetailsImporter(BaseImporter):
             if photos:
                 AttractionDBService.save_photos(photos.items())
 
+            if locations:
+                LocationDBService.save_locations(locations.items())
+
         properties.clear()
         localized.clear()
         photos.clear()
+        locations.clear()
 
     def process_file(self, file_path):
         properties = BatchBuffer(self.config.BATCH_SIZE)
         localized = BatchBuffer(self.config.BATCH_SIZE)
         photos = BatchBuffer(self.config.BATCH_SIZE)
+        locations = BatchBuffer(self.config.BATCH_SIZE)
 
         try:
             print(f"Processing {file_path}")
@@ -101,11 +109,19 @@ class AttractionDetailsImporter(BaseImporter):
                     for row in photo_rows:
                         photos.add(row)
 
-                    if properties.is_full():
-                        self._flush(properties, localized, photos)
+                    location_row = self.location_row_builder.build(
+                        latlon=property_row["latlon"],
+                        geography_latlon=property_row["geography_latlon"],
+                    )
+                    
+                    if location_row:
+                        locations.add(location_row)
 
-            if properties or localized or photos:
-                self._flush(properties, localized, photos)
+                    if properties.is_full():
+                        self._flush(properties, localized, photos, locations)
+
+            if properties or localized or photos or locations:
+                self._flush(properties, localized, photos, locations)
 
         finally:
             self.close_connection()

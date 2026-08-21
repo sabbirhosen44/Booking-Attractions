@@ -1,5 +1,9 @@
+from core.utils.partition_manager import PartitionManager
+from core.utils.location_id_generator import LocationIDGenerator
+
 from apps.attractions.models import (
     Feed,
+    Location,
     PriceHistory,
     PropertyImageMeta,
     PropertyReviews,
@@ -8,7 +12,6 @@ from apps.attractions.models import (
     SkipProperties,
 )
 
-from core.utils.partition_manager import PartitionManager
 
 RENTAL_PROPERTY_FIELDS = [
     "booking_id",
@@ -54,6 +57,11 @@ PROPERTY_REVIEWS_FIELDS = [
     "summary",
     "reviewer",
     "review_date",
+]
+
+LOCATION_FIELDS = [
+    "center",
+    "geography_center",
 ]
 
 
@@ -168,6 +176,36 @@ class AttractionDBService:
 
         if to_update:
             RentalProperty.objects.bulk_update(to_update, ["check_in", "check_out"])
+
+
+# Handles saving attraction-derived rows into the existing Location table
+class LocationDBService:
+    @staticmethod
+    def save_locations(rows):
+        if not rows:
+            return
+
+        location_rows = [row for row in rows if row]
+        if not location_rows:
+            return
+
+        instances = []
+
+        for row in location_rows:
+            location_id = LocationIDGenerator.generate()
+
+            row["id"] = location_id
+
+            instances.append(
+                Location(**row)
+            )
+
+        Location.objects.bulk_create(
+            instances,
+            update_conflicts=True,
+            unique_fields=["id"],
+            update_fields=LOCATION_FIELDS,
+        )
 
 
 # Handles saving attraction reviews in the database
